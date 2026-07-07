@@ -1,6 +1,9 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NEXT_PUBLIC_MOCK_API = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
