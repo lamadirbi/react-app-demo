@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -20,9 +21,10 @@ type VerifiedPhysician = {
 type Paginated<T> = { data: T[] };
 
 export default function VerifiedPhysiciansPage() {
-  const { user } = useRequireAuth({ allowedRoles: ["patient"] });
+  const { user, loading: authLoading } = useRequireAuth({ allowedRoles: ["patient"] });
   const [rows, setRows] = useState<VerifiedPhysician[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState("");
 
@@ -33,6 +35,7 @@ export default function VerifiedPhysiciansPage() {
       .then((res) => {
         if (!mounted) return;
         setLoading(false);
+        if (!initialLoadDone) setInitialLoadDone(true);
         if (!res.ok) {
           setError(res.message);
           return;
@@ -42,6 +45,7 @@ export default function VerifiedPhysiciansPage() {
       .catch(() => {
         if (!mounted) return;
         setLoading(false);
+        if (!initialLoadDone) setInitialLoadDone(true);
         setError("فشل تحميل الأطباء");
       });
     return () => {
@@ -50,6 +54,10 @@ export default function VerifiedPhysiciansPage() {
   }, [specialty]);
 
   return (
+    <PageLoadingGate
+      loading={authLoading || !initialLoadDone}
+      message="جاري تحميل الأطباء..."
+    >
     <div className="min-h-screen bg-transparent">
       <AppHeader title="الأطباء الموثّقون" backHref="/dashboard" userRole={user?.role} />
 
@@ -60,7 +68,7 @@ export default function VerifiedPhysiciansPage() {
               الأطباء الموثّقون
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              اختر طبيباً موثّقاً لإرسال استشارة مباشرة إليه، أو استخدم الطابور العام من صفحة استشارة جديدة.
+              تصفّح الأطباء وأرسل استشارة لمن تختاره، أو أرسلها لأول طبيب متاح من صفحة استشارة جديدة.
             </p>
 
             <div className="mt-4">
@@ -75,7 +83,7 @@ export default function VerifiedPhysiciansPage() {
             {error ? <Alert variant="error" className="mt-4">{error}</Alert> : null}
 
             {loading ? (
-              <p className="mt-6 text-sm text-zinc-500">جاري التحميل...</p>
+              <p className="mt-6 text-sm text-zinc-500">جاري تحديث القائمة...</p>
             ) : rows.length === 0 ? (
               <p className="mt-6 text-sm text-zinc-500">لا يوجد أطباء موثّقون حالياً.</p>
             ) : (
@@ -106,5 +114,6 @@ export default function VerifiedPhysiciansPage() {
         </Card>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }

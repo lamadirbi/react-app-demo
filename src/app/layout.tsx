@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Cairo, JetBrains_Mono } from "next/font/google";
-import { DemoBanner } from "@/components/DemoBanner";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -16,8 +15,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GazaCare Connect — نسخة تجريبية",
-  description: "نسخة عرض تجريبية لمنصة GazaCare Connect — بيانات محاكاة للتوضيح فقط",
+  title: "GazaCare Connect — استشارات طبية عن بُعد",
+  description:
+    "استشارات طبية عن بُعد من غزة — ملف طبي، مرفقات، ورد الطبيب بمكان واحد.",
   icons: {
     icon: "/icon",
     apple: "/icon",
@@ -37,7 +37,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col text-zinc-900 dark:text-zinc-50">
         <div className="gc-app relative flex min-h-screen flex-col">
-          <DemoBanner />
           {children}
         </div>
       </body>

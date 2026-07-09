@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -20,15 +21,16 @@ type UserRow = {
 type Paginated<T> = { data: T[] };
 
 const roleLabels: Record<string, string> = {
-  patient: "مريض",
+  patient: "مراجع",
   physician: "طبيب",
   admin: "مدير",
 };
 
 export default function AdminUsersPage() {
-  const { user } = useRequireAuth({ allowedRoles: ["admin"] });
+  const { user, loading: authLoading } = useRequireAuth({ allowedRoles: ["admin"] });
   const [rows, setRows] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
@@ -39,6 +41,7 @@ export default function AdminUsersPage() {
     const qs = roleFilter ? `?role=${encodeURIComponent(roleFilter)}` : "";
     const res = await apiFetch<Paginated<UserRow>>(`/admin/users${qs}`);
     setLoading(false);
+    if (!initialLoadDone) setInitialLoadDone(true);
     if (!res.ok) {
       setError(res.message);
       return;
@@ -66,6 +69,10 @@ export default function AdminUsersPage() {
   }
 
   return (
+    <PageLoadingGate
+      loading={authLoading || !initialLoadDone}
+      message="جاري تحميل المستخدمين..."
+    >
     <div className="min-h-screen bg-transparent">
       <AppHeader title="إدارة المستخدمين" backHref="/admin/dashboard" userRole={user?.role} />
 
@@ -88,7 +95,7 @@ export default function AdminUsersPage() {
             {error ? <Alert variant="error" className="mt-4">{error}</Alert> : null}
 
             {loading ? (
-              <p className="mt-6 text-sm text-zinc-500">جاري التحميل...</p>
+              <p className="mt-6 text-sm text-zinc-500">جاري تحديث القائمة...</p>
             ) : (
               <div className="mt-6 overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -143,5 +150,6 @@ export default function AdminUsersPage() {
         </Card>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }

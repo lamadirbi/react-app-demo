@@ -2,8 +2,6 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string; status?: number };
 
-export const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_API === "true";
-
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
@@ -22,11 +20,6 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit & { auth?: boolean } = {}
 ): Promise<ApiResult<T>> {
-  if (MOCK_MODE) {
-    const { mockApiFetch } = await import("@/lib/mockApi");
-    return mockApiFetch<T>(path, options);
-  }
-
   const url = `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
@@ -65,11 +58,6 @@ export async function downloadWithAuth(
   path: string,
   query?: Record<string, string>
 ): Promise<ApiResult<{ blob: Blob; filename?: string }>> {
-  if (MOCK_MODE) {
-    const { mockDownloadWithAuth } = await import("@/lib/mockApi");
-    return mockDownloadWithAuth(path);
-  }
-
   const qs =
     query && Object.keys(query).length > 0
       ? `?${new URLSearchParams(query).toString()}`
@@ -104,3 +92,4 @@ export async function downloadWithAuth(
     return { ok: false, message: "فشل الاتصال بالخادم. تحقق من الإنترنت." };
   }
 }
+

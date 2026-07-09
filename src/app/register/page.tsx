@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, setToken } from "@/lib/api";
-import { routeForRole } from "@/lib/auth";
+import { routeForRole, setAuthSession, type MeUser } from "@/lib/auth";
 import { uploadMedicalFiles } from "@/lib/medicalFiles";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +17,7 @@ type RegisterResponse = {
 };
 
 const roles = [
-  { value: "patient", label: "مريض" },
+  { value: "patient", label: "مراجع" },
   { value: "physician", label: "طبيب" },
 ] as const;
 
@@ -67,7 +67,7 @@ export default function RegisterPage() {
       method: "POST",
       body: JSON.stringify({
         name,
-        email,
+        email: email.trim().toLowerCase(),
         phone: phone || undefined,
         role,
         password,
@@ -84,6 +84,7 @@ export default function RegisterPage() {
     }
 
     setToken(res.data.token);
+    setAuthSession(res.data.user as MeUser);
 
     if (isPhysician && certificateFiles.length > 0) {
       setUploading(true);
@@ -139,11 +140,11 @@ export default function RegisterPage() {
         <Card>
           <CardBody>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-              إنشاء حساب
+              انضم إلى GazaCare Connect
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              أنشئ حساباً للوصول للاستشارات والملف الطبي.
-              {isPhysician ? " حسابات الأطباء تحتاج موافقة الإدارة قبل الوصول لسجلات المرضى." : ""}
+              أنشئ حسابك للوصول إلى الاستشارات والملف الطبي.
+              {isPhysician ? " حساب الطبيب يخضع لمراجعة الإدارة قبل استقبال الحالات." : ""}
             </p>
 
             <form onSubmit={onSubmit} className="mt-6 grid gap-4">

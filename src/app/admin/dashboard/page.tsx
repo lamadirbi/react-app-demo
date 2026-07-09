@@ -5,15 +5,17 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 
 type Paginated<T> = { data: T[]; total?: number };
 
 export default function AdminDashboardPage() {
-  const { user } = useRequireAuth({ allowedRoles: ["admin"] });
+  const { user, loading: authLoading } = useRequireAuth({ allowedRoles: ["admin"] });
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [usersCount, setUsersCount] = useState<number | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -24,6 +26,7 @@ export default function AdminDashboardPage() {
       if (!mounted) return;
       if (pending.ok) setPendingCount(pending.data.total ?? pending.data.data?.length ?? 0);
       if (users.ok) setUsersCount(users.data.total ?? users.data.data?.length ?? 0);
+      setStatsLoading(false);
     });
     return () => {
       mounted = false;
@@ -31,6 +34,10 @@ export default function AdminDashboardPage() {
   }, []);
 
   return (
+    <PageLoadingGate
+      loading={authLoading || statsLoading}
+      message="جاري تحميل لوحة المدير..."
+    >
     <div className="min-h-screen bg-transparent">
       <AppHeader title="لوحة المدير" backHref="/" userRole={user?.role} />
 
@@ -69,11 +76,12 @@ export default function AdminDashboardPage() {
             </div>
 
             <Alert variant="info" className="mt-6">
-              يمكنك تعطيل حسابات المرضى والأطباء، ومراجعة شهادات الأطباء الجدد قبل السماح لهم برؤية سجلات المرضى.
+              يمكنك تعطيل حسابات المراجعين والأطباء، ومراجعة شهادات الأطباء الجدد قبل السماح لهم بالعمل.
             </Alert>
           </CardBody>
         </Card>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }

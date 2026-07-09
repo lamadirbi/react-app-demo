@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, downloadWithAuth } from "@/lib/api";
 import { useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -81,9 +82,10 @@ function fileKindLabel(kind?: string | null, mime?: string | null) {
 }
 
 export default function AdminPhysiciansPage() {
-  const { user } = useRequireAuth({ allowedRoles: ["admin"] });
+  const { user, loading: authLoading } = useRequireAuth({ allowedRoles: ["admin"] });
   const [rows, setRows] = useState<PhysicianProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -98,6 +100,7 @@ export default function AdminPhysiciansPage() {
         : `/admin/physicians?status=${encodeURIComponent(statusFilter)}`;
     const res = await apiFetch<Paginated<PhysicianProfileRow>>(endpoint);
     setLoading(false);
+    if (!initialLoadDone) setInitialLoadDone(true);
     if (!res.ok) {
       setError(res.message);
       return;
@@ -150,6 +153,10 @@ export default function AdminPhysiciansPage() {
   }
 
   return (
+    <PageLoadingGate
+      loading={authLoading || !initialLoadDone}
+      message="جاري تحميل طلبات الأطباء..."
+    >
     <div className="min-h-screen bg-transparent">
       <AppHeader title="توثيق الأطباء" backHref="/admin/dashboard" userRole={user?.role} />
 
@@ -180,7 +187,7 @@ export default function AdminPhysiciansPage() {
             {error ? <Alert variant="error" className="mt-4">{error}</Alert> : null}
 
             {loading ? (
-              <p className="mt-6 text-sm text-zinc-500">جاري التحميل...</p>
+              <p className="mt-6 text-sm text-zinc-500">جاري تحديث القائمة...</p>
             ) : rows.length === 0 ? (
               <p className="mt-6 text-sm text-zinc-500">لا توجد طلبات في هذا القسم.</p>
             ) : (
@@ -330,5 +337,6 @@ export default function AdminPhysiciansPage() {
         </Card>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }

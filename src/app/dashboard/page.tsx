@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ type MedicalProfile = {
 };
 
 export default function DashboardPage() {
-  const { user, error } = useRequireAuth();
+  const { user, loading, error } = useRequireAuth();
   const [profile, setProfile] = useState<MedicalProfile | null>(null);
 
   useEffect(() => {
@@ -45,23 +46,26 @@ export default function DashboardPage() {
 
   if (user?.role === "admin") {
     return (
-      <div className="min-h-[calc(100vh-0px)] bg-transparent">
-        <AppHeader title="لوحة التحكم" backHref="/" userRole={user.role} />
-        <main className="mx-auto w-full max-w-5xl px-4 py-8">
-          <p className="text-sm text-zinc-500">جاري تحويلك إلى لوحة المدير...</p>
-        </main>
-      </div>
+      <PageLoadingGate loading={loading} message="جاري التحويل إلى لوحة المدير...">
+        <div className="min-h-[calc(100vh-0px)] bg-transparent">
+          <AppHeader title="لوحة التحكم" backHref="/" userRole={user.role} />
+          <main className="mx-auto w-full max-w-5xl px-4 py-8">
+            <p className="text-sm text-zinc-500">جاري تحويلك إلى لوحة المدير...</p>
+          </main>
+        </div>
+      </PageLoadingGate>
     );
   }
 
   function roleLabel(role: string | null | undefined) {
-    if (role === "patient") return "مريض";
-    if (role === "physician") return "طبيب";
-    if (role === "admin") return "مدير";
+    if (role === "patient") return "مراجع مسجّل";
+    if (role === "physician") return "طبيب مسجّل";
+    if (role === "admin") return "مدير النظام";
     return "مستخدم";
   }
 
   return (
+    <PageLoadingGate loading={loading} message="جاري تجهيز لوحة التحكم...">
     <div className="min-h-[calc(100vh-0px)] bg-transparent">
       <AppHeader
         title="لوحة التحكم"
@@ -72,11 +76,12 @@ export default function DashboardPage() {
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
         {error ? (
           <Alert variant="error">
-            {error} — تأكد أن الباك-إند شغال على <span dir="ltr">:8000</span>
+            {error} — تأكد أن الخادم يعمل على المنفذ <span dir="ltr">:8000</span>
           </Alert>
         ) : null}
 
-        <Card className="mt-4">
+        <Card className="mt-4 overflow-hidden">
+          <div className="h-1 bg-gradient-to-l from-(--gc-accent) to-[#0b6e7a]" />
           <CardBody>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
               لوحة التحكم
@@ -84,8 +89,11 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               {user ? (
                 <>
-                  أهلاً <span className="font-medium">{user.name}</span> — دورك:{" "}
-                  <span className="font-medium">{roleLabel(user.role)}</span>
+                  مرحباً، <span className="font-medium text-foreground">{user.name}</span>
+                  <span className="mx-2 text-zinc-300 dark:text-zinc-600">·</span>
+                  <span className="inline-flex items-center rounded-full border border-(--border) bg-(--surface-2) px-2.5 py-0.5 text-xs font-medium text-(--muted)">
+                    {roleLabel(user.role)}
+                  </span>
                 </>
               ) : (
                 "جاري تحميل بياناتك..."
@@ -98,7 +106,7 @@ export default function DashboardPage() {
                   <div>
                     <h2 className="text-sm font-semibold text-foreground">ملخص الملف الطبي</h2>
                     <p className="mt-1 text-xs text-(--muted)">
-                      يظهر للطبيب عند مراجعة الاستشارة. يمكنك تحديثه من زر أدناه.
+                      يظهر للطبيب عند مراجعة الاستشارة. يمكنك تعديله من الزر أدناه.
                     </p>
                   </div>
                   <Link href="/profile" className="shrink-0">
@@ -176,7 +184,7 @@ export default function DashboardPage() {
                       الأطباء الموثّقون
                     </div>
                     <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                      تصفّح الأطباء المعتمدين وأرسل استشارة مباشرة لطبيب محدد.
+                      تصفّح الأطباء وأرسل استشارة مباشرة لمن تختاره.
                     </div>
                     <div className="mt-4">
                       <Link href="/physicians">
@@ -196,7 +204,7 @@ export default function DashboardPage() {
                       الملف الطبي
                     </div>
                     <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                      استعراض وتحديث بيانات الحالة الصحية.
+                      عدّل بياناتك الصحية.
                     </div>
                     <div className="mt-4">
                       <Link href="/profile">
@@ -212,10 +220,12 @@ export default function DashboardPage() {
               {user?.role === "patient" ? (
               <Card className="hover:brightness-[1.03]">
                 <CardBody className="p-5">
-                  <div className="font-semibold text-zinc-900 dark:text-zinc-50">الاستشارات</div>
-                  <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    إنشاء استشارة ومتابعة الحالة والرد.
-                  </div>
+                    <div className="font-semibold text-zinc-900 dark:text-zinc-50">
+                      استشاراتي
+                    </div>
+                    <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                      أرسل استشارة جديدة أو راجع السابقة.
+                    </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link href="/consultations">
                       <Button variant="secondary" size="sm">
@@ -240,6 +250,7 @@ export default function DashboardPage() {
         </Card>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }
 

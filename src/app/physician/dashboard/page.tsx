@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { isVerifiedPhysician, physicianProfileOf, useRequireAuth } from "@/lib/auth";
 import { AppHeader } from "@/components/AppHeader";
+import { PageLoadingGate } from "@/components/PageLoadingGate";
 import { Alert } from "@/components/ui/Alert";
 import {
   PhysicianProfilePanel,
   PhysicianQueueSection,
+  PhysicianDirectSection,
   PhysicianInProgressSection,
   PhysicianCompletedSection,
+  scrollToPhysicianSection,
 } from "@/features/physician";
 
 type Consultation = {
@@ -19,16 +22,18 @@ type Consultation = {
   submitted_at: string;
   responded_at?: string | null;
   physician_response?: string | null;
+  assignment_mode?: "queue" | "direct";
   patient?: { id: number; name: string; role: string };
 };
 
 type Paginated<T> = { data: T[] };
 
 export default function PhysicianDashboardPage() {
-  const { user } = useRequireAuth({ allowedRoles: ["physician"] });
+  const { user, loading: authLoading } = useRequireAuth({ allowedRoles: ["physician"] });
   const profile = physicianProfileOf(user);
   const verified = isVerifiedPhysician(user);
   const [queue, setQueue] = useState<Consultation[]>([]);
+  const [directPending, setDirectPending] = useState<Consultation[]>([]);
   const [inProgress, setInProgress] = useState<Consultation[]>([]);
   const [completedMine, setCompletedMine] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +57,13 @@ export default function PhysicianDashboardPage() {
         if (q.ok) setQueue(q.data.data ?? []);
         if (mine.ok) {
           const rows = mine.data.data ?? [];
-          setInProgress(rows.filter((c) => c.status === "pending"));
+          const pending = rows.filter((c) => c.status === "pending");
+          setDirectPending(
+            pending.filter((c) => c.assignment_mode === "direct")
+          );
+          setInProgress(
+            pending.filter((c) => c.assignment_mode !== "direct")
+          );
           setCompletedMine(rows.filter((c) => c.status === "completed"));
         }
       })
@@ -66,6 +77,13 @@ export default function PhysicianDashboardPage() {
     };
   }, [verified]);
 
+  useEffect(() => {
+    if (loading || !verified) return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const timer = window.setTimeout(() => scrollToPhysicianSection(hash), 120);
+    return () => window.clearTimeout(timer);
+  }, [loading, verified]);
 
   async function claim(id: number) {
     setClaimingId(id);
@@ -82,6 +100,10 @@ export default function PhysicianDashboardPage() {
   }
 
   return (
+    <PageLoadingGate
+      loading={authLoading || loading}
+      message="جاري تحميل لوحة الطبيب..."
+    >
     <div className="min-h-screen bg-transparent">
       <AppHeader
         title="لوحة الطبيب"
@@ -90,11 +112,6 @@ export default function PhysicianDashboardPage() {
       />
 
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
-        {loading ? (
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            جاري التحميل...
-          </div>
-        ) : null}
         {error ? (
           <div className="mb-4">
             <Alert variant="error">{error}</Alert>
@@ -113,13 +130,18 @@ export default function PhysicianDashboardPage() {
                 </>
               ) : (
                 <>
-                  حسابك بانتظار موافقة الإدارة. لن تتمكن من رؤية سجلات المرضى أو استلام
-                  الاستشارات حتى يتم توثيقك.
+                  حسابك بانتظار موافقة الإدارة. لن تتمكن من عرض الحالات أو استلام الاستشارات حتى يتم توثيقك.
                 </>
               )}
             </Alert>
           ) : (
             <>
+              <PhysicianDirectSection
+                items={directPending}
+                loading={loading}
+                error={error}
+              />
+
               <PhysicianQueueSection
                 queue={queue}
                 loading={loading}
@@ -136,6 +158,6 @@ export default function PhysicianDashboardPage() {
         </div>
       </main>
     </div>
+    </PageLoadingGate>
   );
 }
-
