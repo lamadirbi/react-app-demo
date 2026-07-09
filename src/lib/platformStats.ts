@@ -7,13 +7,25 @@ export type PlatformStats = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_API === "true";
+
 const emptyStats: PlatformStats = {
   completed_consultations: 0,
   verified_physicians: 0,
   registered_patients: 0,
 };
 
+const demoStats: PlatformStats = {
+  completed_consultations: 12,
+  verified_physicians: 2,
+  registered_patients: 5,
+};
+
 export async function fetchPlatformStats(): Promise<PlatformStats> {
+  if (MOCK_MODE) {
+    return demoStats;
+  }
+
   try {
     const res = await fetch(`${API_BASE}/platform-stats`, {
       next: { revalidate: 30 },
