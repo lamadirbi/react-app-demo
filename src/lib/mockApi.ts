@@ -479,6 +479,8 @@ export async function mockApiFetch<T>(
             specialty: profile.specialty,
             certificate: profile.certificate,
             certificate_files: profile.certificate_files ?? [],
+            verification_status: profile.verification_status,
+            rejection_reason: profile.rejection_reason ?? null,
           },
         } as T,
       };
@@ -486,6 +488,19 @@ export async function mockApiFetch<T>(
     if (method === "PUT") {
       profile.specialty = String(body.specialty ?? profile.specialty);
       profile.certificate = String(body.certificate ?? profile.certificate);
+      if (Array.isArray(body.certificate_file_ids)) {
+        const ids = (body.certificate_file_ids as number[]).map(Number);
+        profile.certificate_files = state.files.filter((f) => ids.includes(f.id));
+      }
+      if (body.resubmit === true && profile.verification_status !== "approved") {
+        profile.verification_status = "pending";
+        profile.rejection_reason = null;
+      }
+      // Keep user object in state in sync
+      const userIdx = state.users.findIndex((u) => u.id === currentUser.id);
+      if (userIdx >= 0) {
+        state.users[userIdx] = { ...currentUser, physician_profile: profile };
+      }
       saveState(state);
       return {
         ok: true,
@@ -494,6 +509,8 @@ export async function mockApiFetch<T>(
             specialty: profile.specialty,
             certificate: profile.certificate,
             certificate_files: profile.certificate_files ?? [],
+            verification_status: profile.verification_status,
+            rejection_reason: profile.rejection_reason ?? null,
           },
         } as T,
       };
