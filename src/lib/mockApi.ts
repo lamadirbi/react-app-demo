@@ -524,7 +524,7 @@ export async function mockApiFetch<T>(
   }
 
   // ── Consultations ──
-  if (path === "/consultations" && method === "GET") {
+  if ((path === "/consultations" || path.startsWith("/consultations?")) && method === "GET") {
     if (!currentUser) return { ok: false, message: "غير مصرح.", status: 401 };
     let rows: MockConsultation[];
     if (currentUser.role === "patient") {
@@ -534,6 +534,10 @@ export async function mockApiFetch<T>(
     } else {
       rows = state.consultations;
     }
+    rows = [...rows].sort(
+      (a, b) =>
+        new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime(),
+    );
     return {
       ok: true,
       data: { data: rows.map((c) => consultationListItem(c, state)) } as T,
