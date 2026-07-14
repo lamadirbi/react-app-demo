@@ -641,6 +641,27 @@ export async function mockApiFetch<T>(
     }
 
     if (method === "GET") {
+      if (!currentUser) {
+        return { ok: false, message: "غير مصرح.", status: 401 };
+      }
+      if (currentUser.role === "patient" && c.patient_id !== currentUser.id) {
+        return { ok: false, message: "غير مصرح.", status: 403 };
+      }
+      if (currentUser.role === "physician") {
+        const profile = currentUser.physician_profile;
+        if (profile?.verification_status !== "approved") {
+          return {
+            ok: false,
+            message: "حسابك بانتظار موافقة الإدارة.",
+            status: 403,
+          };
+        }
+        const allowed =
+          c.physician_id === null || c.physician_id === currentUser.id;
+        if (!allowed) {
+          return { ok: false, message: "غير مصرح.", status: 403 };
+        }
+      }
       return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
     }
   }
