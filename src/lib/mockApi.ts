@@ -237,6 +237,7 @@ function loadState(): MockState {
 function saveState(state: MockState) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  window.dispatchEvent(new Event("gc-mock-state-changed"));
 }
 
 function getTokenUserId(): number | null {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import { HomePlatformStats } from "@/components/HomePlatformStats";
 import { LandingHeader } from "@/components/LandingHeader";
-import { buildStatCards, fetchPlatformStats } from "@/lib/platformStats";
 
 const steps = [
   {
@@ -72,10 +72,7 @@ const faqs = [
   },
 ];
 
-export default async function Home() {
-  const platformStats = await fetchPlatformStats();
-  const stats = buildStatCards(platformStats);
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-transparent font-sans">
       <LandingHeader />
@@ -112,16 +109,7 @@ export default async function Home() {
                   </Link>
                 </div>
 
-                <div className="mt-10 grid grid-cols-3 gap-3">
-                  {stats.map((s) => (
-                    <div key={s.label} className="gc-stat-card">
-                      <div className="text-xl font-extrabold text-(--gc-accent) sm:text-2xl">
-                        {s.value}
-                      </div>
-                      <div className="mt-0.5 text-xs text-(--muted)">{s.label}</div>
-                    </div>
-                  ))}
-                </div>
+                <HomePlatformStats />
               </div>
 
               <div className="relative mx-auto w-full max-w-md lg:max-w-none">
