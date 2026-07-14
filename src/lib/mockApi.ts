@@ -540,17 +540,24 @@ export async function mockApiFetch<T>(
     };
   }
 
-  if (path === "/consultations/queue" && method === "GET") {
-    const rows = state.consultations.filter(
-      (c) =>
-        c.status === "pending" &&
-        c.physician_id === null &&
-        (c.assignment_mode ?? "queue") !== "direct",
-    );
-    return {
-      ok: true,
-      data: { data: rows.map((c) => consultationListItem(c, state)) } as T,
-    };
+  if (path === "/consultations/queue" || path.startsWith("/consultations/queue?")) {
+    if (method === "GET") {
+      const rows = state.consultations
+        .filter(
+          (c) =>
+            c.status === "pending" &&
+            c.physician_id === null &&
+            (c.assignment_mode ?? "queue") !== "direct",
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime(),
+        );
+      return {
+        ok: true,
+        data: { data: rows.map((c) => consultationListItem(c, state)) } as T,
+      };
+    }
   }
 
   if (path === "/consultations" && method === "POST") {
