@@ -600,9 +600,14 @@ export async function mockApiFetch<T>(
       if (!currentUser || currentUser.role !== "physician" || c.physician_id !== currentUser.id) {
         return { ok: false, message: "غير مصرح.", status: 403 };
       }
-      c.physician_response = String(body.physician_response ?? "");
-      c.status = "completed";
+      const responseText = String(body.response ?? body.physician_response ?? "");
+      c.physician_response = responseText;
       c.responded_at = nowIso(0);
+      if (body.mark_completed !== false) {
+        c.status = "completed";
+      } else {
+        c.status = "pending";
+      }
       saveState(state);
       return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
     }
@@ -636,17 +641,52 @@ export async function mockApiFetch<T>(
   }
 
   // ── Admin ──
-  if (path === "/admin/users" || path.startsWith("/admin/users?")) {
-    const rows = state.users.map((u) => ({
+  function mapAdminUser(u: MockUser) {
+    return {
       id: u.id,
       name: u.name,
       email: u.email,
       role: u.role,
       is_disabled: u.is_disabled ?? false,
       physician_profile: u.physician_profile
-        ? { verification_status: u.physician_profile.verification_status }
+        ? {
+            specialty: u.physician_profile.specialty,
+            verification_status: u.physician_profile.verification_status,
+          }
         : null,
-    }));
+    };
+  }
+
+  function mapAdminPhysician(u: MockUser) {
+    return {
+      id: u.physician_profile!.id,
+      specialty: u.physician_profile!.specialty,
+      certificate: u.physician_profile!.certificate,
+      verification_status: u.physician_profile!.verification_status,
+      rejection_reason: u.physician_profile!.rejection_reason,
+      user: {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        is_disabled: u.is_disabled ?? false,
+      },
+      certificate_files: u.physician_profile!.certificate_files ?? [],
+    };
+  }
+
+  if (path === "/admin/users" || path.startsWith("/admin/users?")) {
+    const qs = path.includes("?") ? new URLSearchParams(path.split("?")[1]) : null;
+    const role = qs?.get("role")?.trim() || "";
+    const status = qs?.get("status")?.trim() || "";
+    let rows = state.users.map(mapAdminUser);
+    if (role) {
+      rows = rows.filter((u) => u.role === role);
+    }
+    if (status === "disabled") {
+      rows = rows.filter((u) => u.is_disabled);
+    } else if (status === "active") {
+      rows = rows.filter((u) => !u.is_disabled);
+    }
     return { ok: true, data: { data: rows } as T };
   }
 
@@ -654,56 +694,17 @@ export async function mockApiFetch<T>(
   if (disableMatch && method === "PATCH") {
     const u = state.users.find((x) => x.id === Number(disableMatch[1]));
     if (!u) return { ok: false, message: "المستخدم غير موجود.", status: 404 };
-    u.is_disabled = Boolean(body.is_disabled);
+    u.is_disabled = Boolean(body.disabled ?? body.is_disabled);
     saveState(state);
     return {
       ok: true,
       data: {
-        user: {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          is_disabled: u.is_disabled,
-        },
+        user: mapAdminUser(u),
       } as T,
     };
   }
 
-  if (path === "/admin/physicians/pending") {
-    const rows = state.users
-      .filter((u) => u.role === "physician" && u.physician_profile?.verification_status === "pending")
-      .map((u) => ({
-        id: u.physician_profile!.id,
-        specialty: u.physician_profile!.specialty,
-        certificate: u.physician_profile!.certificate,
-        verification_status: u.physician_profile!.verification_status,
-        user: { id: u.id, name: u.name, email: u.email },
-        certificate_files: u.physician_profile!.certificate_files ?? [],
-      }));
-    return { ok: true, data: { data: rows, total: rows.length } as T };
-  }
-
-  if (path.startsWith("/admin/physicians")) {
-    const statusMatch = path.match(/status=(\w+)/);
-    const status = statusMatch?.[1] ?? "approved";
-    const rows = state.users
-      .filter(
-        (u) =>
-          u.role === "physician" && u.physician_profile?.verification_status === status,
-      )
-      .map((u) => ({
-        id: u.physician_profile!.id,
-        specialty: u.physician_profile!.specialty,
-        certificate: u.physician_profile!.certificate,
-        verification_status: u.physician_profile!.verification_status,
-        rejection_reason: u.physician_profile!.rejection_reason,
-        user: { id: u.id, name: u.name, email: u.email },
-        certificate_files: u.physician_profile!.certificate_files ?? [],
-      }));
-    return { ok: true, data: { data: rows } as T };
-  }
-
+  // Approve/reject must be matched BEFORE /admin/physicians list routes
   const approveMatch = path.match(/^\/admin\/physicians\/(\d+)\/(approve|reject)$/);
   if (approveMatch && method === "POST") {
     const profileId = Number(approveMatch[1]);
@@ -718,11 +719,28 @@ export async function mockApiFetch<T>(
     } else {
       user.physician_profile.verification_status = "rejected";
       user.physician_profile.rejection_reason = String(
-        body.rejection_reason ?? "لم تستوفِ متطلبات التوثيق.",
+        body.reason ?? body.rejection_reason ?? "لم تستوفِ متطلبات التوثيق.",
       );
     }
     saveState(state);
     return { ok: true, data: {} as T };
+  }
+
+  if (path === "/admin/physicians/pending") {
+    const rows = state.users
+      .filter((u) => u.role === "physician" && u.physician_profile?.verification_status === "pending")
+      .map(mapAdminPhysician);
+    return { ok: true, data: { data: rows, total: rows.length } as T };
+  }
+
+  if (path === "/admin/physicians" || path.startsWith("/admin/physicians?")) {
+    const qs = path.includes("?") ? new URLSearchParams(path.split("?")[1]) : null;
+    const status = qs?.get("status")?.trim() || "approved";
+    let rows = state.users.filter((u) => u.role === "physician" && u.physician_profile);
+    if (status !== "all") {
+      rows = rows.filter((u) => u.physician_profile?.verification_status === status);
+    }
+    return { ok: true, data: { data: rows.map(mapAdminPhysician) } as T };
   }
 
   // ── Platform stats ──
