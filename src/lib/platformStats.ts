@@ -15,7 +15,7 @@ const emptyStats: PlatformStats = {
   registered_patients: 0,
 };
 
-const demoStats: PlatformStats = {
+const sampleStats: PlatformStats = {
   completed_consultations: 12,
   verified_physicians: 2,
   registered_patients: 5,
@@ -23,7 +23,7 @@ const demoStats: PlatformStats = {
 
 export async function fetchPlatformStats(): Promise<PlatformStats> {
   if (MOCK_MODE) {
-    return demoStats;
+    return sampleStats;
   }
 
   try {

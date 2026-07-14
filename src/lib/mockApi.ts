@@ -57,7 +57,7 @@ type MockState = {
   nextId: { user: number; profile: number; consultation: number; file: number };
 };
 
-const STORAGE_KEY = "gc_mock_state_v2";
+const STORAGE_KEY = "gc_mock_state_v3";
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -107,13 +107,13 @@ function seedState(): MockState {
       {
         id: 1,
         name: "سارة أحمد",
-        email: "patient@demo.com",
+        email: "sara.ahmad@gazacare.ps",
         role: "patient",
       },
       {
         id: 2,
         name: "د. محمد الخالدي",
-        email: "doctor@demo.com",
+        email: "m.khalidi@gazacare.ps",
         role: "physician",
         physician_profile: {
           id: 1,
@@ -126,7 +126,7 @@ function seedState(): MockState {
       {
         id: 3,
         name: "د. ليلى حسن",
-        email: "doctor2@demo.com",
+        email: "layla.hassan@gazacare.ps",
         role: "physician",
         physician_profile: {
           id: 2,
@@ -139,7 +139,7 @@ function seedState(): MockState {
       {
         id: 4,
         name: "د. عمر يوسف",
-        email: "pending@demo.com",
+        email: "omar.yousef@gazacare.ps",
         role: "physician",
         physician_profile: {
           id: 3,
@@ -152,7 +152,7 @@ function seedState(): MockState {
       {
         id: 5,
         name: "مدير النظام",
-        email: "admin@demo.com",
+        email: "admin@gazacare.ps",
         role: "admin",
       },
     ],
@@ -243,10 +243,10 @@ function getTokenUserId(): number | null {
   if (typeof window === "undefined") return null;
   const token = localStorage.getItem("gc_token");
   if (!token) return null;
-  const match = token.match(/^demo-(\d+)$/);
+  const match = token.match(/^gc-(\d+)$/);
   if (match) return Number(match[1]);
   const state = loadState();
-  const user = state.users.find((u) => `demo-${u.id}` === token);
+  const user = state.users.find((u) => `gc-${u.id}` === token);
   return user?.id ?? null;
 }
 
@@ -367,7 +367,7 @@ export async function mockApiFetch<T>(
     }
   return {
       ok: true,
-      data: { user: userPublic(user), token: `demo-${user.id}` } as T,
+      data: { user: userPublic(user), token: `gc-${user.id}` } as T,
     };
   }
 
@@ -409,7 +409,7 @@ export async function mockApiFetch<T>(
     saveState(state);
     return {
       ok: true,
-      data: { user: userPublic(newUser), token: `demo-${newUser.id}` } as T,
+      data: { user: userPublic(newUser), token: `gc-${newUser.id}` } as T,
     };
   }
 
@@ -790,7 +790,7 @@ export async function mockApiFetch<T>(
     };
   }
 
-  return { ok: false, message: `مسار تجريبي غير مدعوم: ${method} ${path}`, status: 404 };
+  return { ok: false, message: `المسار غير متاح: ${method} ${path}`, status: 404 };
 }
 
 export async function mockDownloadWithAuth(
@@ -810,11 +810,29 @@ export async function mockDownloadWithAuth(
   };
 }
 
-export const DEMO_ACCOUNTS = [
-  { role: "مراجع", email: "patient@demo.com", password: "demo" },
-  { role: "طبيب", email: "doctor@demo.com", password: "demo" },
-  { role: "مدير", email: "admin@demo.com", password: "demo" },
+export const QUICK_LOGIN_ACCOUNTS = [
+  {
+    role: "مراجع",
+    name: "سارة أحمد",
+    email: "sara.ahmad@gazacare.ps",
+    password: "Care2026",
+  },
+  {
+    role: "طبيب",
+    name: "د. محمد الخالدي",
+    email: "m.khalidi@gazacare.ps",
+    password: "Care2026",
+  },
+  {
+    role: "مدير",
+    name: "مدير النظام",
+    email: "admin@gazacare.ps",
+    password: "Care2026",
+  },
 ] as const;
+
+/** @deprecated use QUICK_LOGIN_ACCOUNTS */
+export const DEMO_ACCOUNTS = QUICK_LOGIN_ACCOUNTS;
 
 export function resetMockData() {
   if (typeof window === "undefined") return;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { apiFetch, MOCK_MODE, setToken } from "@/lib/api";
 import { routeForRole, setAuthSession, type MeUser } from "@/lib/auth";
-import { DEMO_ACCOUNTS } from "@/lib/mockApi";
+import { QUICK_LOGIN_ACCOUNTS } from "@/lib/mockApi";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -74,20 +74,17 @@ export default function LoginPage() {
               مرحباً بعودتك
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              {MOCK_MODE
-                ? "نسخة تجريبية — ادخل مباشرة بحساب جاهز أو استخدم النموذج أدناه."
-                : "سجّل دخولك للوصول إلى لوحة التحكم."}
+              سجّل دخولك للوصول إلى لوحة التحكم ومتابعة الاستشارات.
             </p>
 
             {MOCK_MODE ? (
-              <div className="mt-5 rounded-2xl border-2 border-(--gc-accent)/30 bg-[rgba(21,185,198,0.06)] p-4">
-                <p className="text-sm font-bold text-foreground">دخول سريع (تجريبي)</p>
+              <div className="mt-5 rounded-2xl border border-(--border) bg-(--surface-2) p-4">
+                <p className="text-sm font-semibold text-foreground">دخول سريع</p>
                 <p className="mt-1 text-xs text-(--muted)">
-                  كلمة المرور لأي حساب:{" "}
-                  <span className="font-mono font-bold text-foreground">demo</span>
+                  اختر حساباً للمتابعة مباشرة.
                 </p>
                 <div className="mt-3 grid gap-2">
-                  {DEMO_ACCOUNTS.map((acc) => (
+                  {QUICK_LOGIN_ACCOUNTS.map((acc) => (
                     <Button
                       key={acc.email}
                       type="button"
@@ -97,9 +94,7 @@ export default function LoginPage() {
                       className="h-auto w-full justify-between gap-2 px-4 py-3 text-start"
                     >
                       <span className="font-semibold">{acc.role}</span>
-                      <span className="text-xs font-normal text-(--muted)" dir="ltr">
-                        {acc.email}
-                      </span>
+                      <span className="text-xs font-normal text-(--muted)">{acc.name}</span>
                     </Button>
                   ))}
                 </div>
@@ -110,7 +105,7 @@ export default function LoginPage() {
               {MOCK_MODE ? (
                 <>
                   <div className="h-px flex-1 bg-(--border)" />
-                  <span className="text-xs text-(--muted)">أو ادخل يدوياً</span>
+                  <span className="text-xs text-(--muted)">أو ادخل ببياناتك</span>
                   <div className="h-px flex-1 bg-(--border)" />
                 </>
               ) : null}
