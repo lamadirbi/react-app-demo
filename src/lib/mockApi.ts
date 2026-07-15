@@ -78,6 +78,7 @@ type MockNotification = {
 };
 
 type MockState = {
+  seed_revision?: number;
   users: MockUser[];
   medicalProfiles: MockMedicalProfile[];
   consultations: MockConsultation[];
@@ -95,8 +96,15 @@ type MockState = {
   };
 };
 
-const STORAGE_KEY = "gc_mock_state_v9";
+const STORAGE_KEY = "gc_mock_state_v10";
+const PREV_STORAGE_KEYS = [
+  "gc_mock_state_v7",
+  "gc_mock_state_v8",
+  "gc_mock_state_v9",
+];
 const DEMO_DEFAULT_PASSWORD = "Care2026";
+/** Bump when the demo seed must replace browsers that already saved this STORAGE_KEY. */
+const SEED_REVISION = 2;
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -242,6 +250,7 @@ function seedState(): MockState {
   };
 
   return {
+    seed_revision: SEED_REVISION,
     users: [
       {
         id: 1,
@@ -609,11 +618,30 @@ function seedState(): MockState {
   };
 }
 
+function clearPrevStorageKeys() {
+  if (typeof window === "undefined") return;
+  for (const key of PREV_STORAGE_KEYS) {
+    localStorage.removeItem(key);
+  }
+}
+
+function isStaleSeed(state: MockState): boolean {
+  if ((state.seed_revision ?? 0) < SEED_REVISION) return true;
+  const patients = state.users.filter((u) => u.role === "patient").length;
+  const completed = state.consultations.filter((c) => c.status === "completed").length;
+  // Old demo seed had only 1 patient and 1 completed consultation.
+  return patients < 5 || completed < 5;
+}
+
 function loadState(): MockState {
   if (typeof window === "undefined") return seedState();
+  clearPrevStorageKeys();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as MockState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as MockState;
+      if (!isStaleSeed(parsed)) return parsed;
+    }
   } catch {
     // ignore
   }
@@ -1692,5 +1720,6 @@ export const DEMO_ACCOUNTS = QUICK_LOGIN_ACCOUNTS;
 
 export function resetMockData() {
   if (typeof window === "undefined") return;
+  clearPrevStorageKeys();
   localStorage.removeItem(STORAGE_KEY);
 }
