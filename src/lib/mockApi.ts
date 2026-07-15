@@ -67,7 +67,7 @@ type MockState = {
   nextId: { user: number; profile: number; consultation: number; file: number; message: number };
 };
 
-const STORAGE_KEY = "gc_mock_state_v4";
+const STORAGE_KEY = "gc_mock_state_v5";
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -78,10 +78,10 @@ function nowIso(offsetDays = 0) {
 function seedState(): MockState {
   const certFile: MockFile = {
     id: 1,
-    original_name: "شهادة-تخصص.pdf",
-    mime_type: "application/pdf",
+    original_name: "شهادة-تخصص.jpg",
+    mime_type: "image/jpeg",
     size_bytes: 245_000,
-    file_kind: "pdf",
+    file_kind: "image",
     created_at: nowIso(30),
   };
 
@@ -306,6 +306,7 @@ function physicianOf(id: number | null, state: MockState) {
   if (!id) return null;
   const u = state.users.find((x) => x.id === id);
   if (!u) return null;
+  const certFiles = u.physician_profile?.certificate_files ?? [];
   return {
     id: u.id,
     name: u.name,
@@ -314,6 +315,9 @@ function physicianOf(id: number | null, state: MockState) {
       ? {
           specialty: u.physician_profile.specialty,
           certificate: u.physician_profile.certificate,
+          certificate_files: certFiles,
+          certificate_file: certFiles[0] ?? null,
+          certificate_file_ids: certFiles.map((f) => f.id),
         }
       : null,
   };
@@ -400,12 +404,38 @@ function delay(ms = 300) {
 }
 
 function makePlaceholderBlob(file: MockFile): Blob {
-  if (file.mime_type?.startsWith("image/")) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#e0f2f1" width="400" height="300"/><text x="200" y="150" text-anchor="middle" fill="#0d9488" font-size="18" font-family="sans-serif">${file.original_name}</text></svg>`;
+  if (file.mime_type?.startsWith("image/") || file.file_kind === "image") {
+    const label = file.original_name.replace(/[<>&]/g, "");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#0b6e7a"/><stop offset="100%" stop-color="#15b9c6"/>
+      </linearGradient></defs>
+      <rect fill="url(#g)" width="640" height="420" rx="16"/>
+      <rect x="28" y="28" width="584" height="364" rx="12" fill="#fff" fill-opacity="0.92"/>
+      <text x="320" y="180" text-anchor="middle" fill="#0b3d47" font-size="28" font-family="Tahoma,sans-serif" font-weight="700">شهادة مهنية</text>
+      <text x="320" y="230" text-anchor="middle" fill="#0d9488" font-size="18" font-family="Tahoma,sans-serif">${label}</text>
+      <text x="320" y="290" text-anchor="middle" fill="#64748b" font-size="14" font-family="Tahoma,sans-serif">GazaCare Connect — Demo</text>
+    </svg>`;
     return new Blob([svg], { type: "image/svg+xml" });
   }
-  const text = `%PDF-1.4\n% Mock file: ${file.original_name}\n`;
-  return new Blob([text], { type: "application/pdf" });
+  const safeName = file.original_name.replace(/[^\x20-\x7E]/g, "_").slice(0, 48);
+  const stream = `BT /F1 16 Tf 72 720 Td (${safeName || "Certificate"}) Tj ET`;
+  const parts = [
+    "%PDF-1.4",
+    "1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj",
+    "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj",
+    "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj",
+    `4 0 obj<< /Length ${stream.length} >>stream\n${stream}\nendstream\nendobj`,
+    "5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj",
+    "xref",
+    "0 6",
+    "0000000000 65535 f ",
+    "trailer<< /Size 6 /Root 1 0 R >>",
+    "startxref",
+    "0",
+    "%%EOF",
+  ];
+  return new Blob([parts.join("\n")], { type: "application/pdf" });
 }
 
 export async function mockApiFetch<T>(
