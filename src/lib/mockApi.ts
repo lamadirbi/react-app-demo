@@ -129,6 +129,28 @@ function pushNotification(
   ensureNotifications(state);
   const user = state.users.find((u) => u.id === userId);
   if (!user || user.is_disabled) return;
+
+  const consultationId = meta?.consultation_id != null ? Number(meta.consultation_id) : null;
+  const recent = state.notifications.filter((n) => n.user_id === userId).slice(0, 20);
+  const replyKinds = ["consultation_replied", "consultation_physician_message"];
+  const isDup = recent.some((n) => {
+    const ageMs = Date.now() - new Date(n.created_at).getTime();
+    if (Number.isNaN(ageMs) || ageMs > 90_000) return false;
+    const sameKind = n.kind === kind && (consultationId == null || Number(n.meta?.consultation_id) === consultationId);
+    if (sameKind && ageMs <= 90_000) return true;
+    if (
+      consultationId != null &&
+      replyKinds.includes(kind) &&
+      replyKinds.includes(n.kind) &&
+      Number(n.meta?.consultation_id) === consultationId &&
+      ageMs <= 12_000
+    ) {
+      return true;
+    }
+    return false;
+  });
+  if (isDup) return;
+
   state.notifications.unshift({
     id: `n-${state.nextId.notification++}`,
     user_id: userId,
@@ -590,8 +612,7 @@ export async function mockApiFetch<T>(
   if (path === "/auth/forgot-password" && method === "POST") {
     const email = String(body.email ?? "").toLowerCase().trim();
     const user = state.users.find((u) => u.email === email);
-    const message =
-      "تم تجهيز رابط إعادة التعيين. في النسخة التجريبية لا يُرسل بريد حقيقي — استخدم الرابط أو الرمز في الاستجابة.";
+    const message = "تم تجهيز الرابط. استخدميه من الواجهة.";
     if (user && !user.is_disabled) {
       if (!state.passwordResetTokens) state.passwordResetTokens = [];
       const token = generateResetToken();
@@ -614,7 +635,7 @@ export async function mockApiFetch<T>(
       ok: true,
       data: {
         message:
-          "لم يُعثر على بريد مسجّل. جرّب أحد حسابات «دخول سريع» من صفحة تسجيل الدخول.",
+        message: "البريد غير مسجّل. جرّبي حساباً من «دخول سريع».",
       } as T,
     };
   }
@@ -1047,6 +1068,9 @@ export async function mockApiFetch<T>(
         return { ok: false, message: "غير مصرح.", status: 403 };
       }
       const responseText = String(body.response ?? body.physician_response ?? "");
+      const hadPhysicianReply =
+        Boolean(c.physician_response?.trim()) ||
+        (state.messages ?? []).some((m) => m.consultation_id === c.id && m.sender_role === "physician");
       c.physician_response = responseText;
       c.responded_at = nowIso(0);
       if (body.mark_completed !== false) {
@@ -1065,7 +1089,7 @@ export async function mockApiFetch<T>(
         created_at: c.responded_at,
       });
       const patient = state.users.find((u) => u.id === c.patient_id);
-      if (patient) {
+      if (patient && !hadPhysicianReply) {
         pushNotification(
           state,
           patient.id,
@@ -1115,6 +1139,9 @@ export async function mockApiFetch<T>(
       } else {
         return { ok: false, message: "غير مصرح.", status: 403 };
       }
+      const priorPhysicianMessages =
+        currentUser.role === "physician" &&
+        (state.messages ?? []).some((m) => m.consultation_id === c.id && m.sender_role === "physician");
       if (!state.messages) state.messages = [];
       if (!state.nextId.message) state.nextId.message = 1;
       const message: MockMessage = {
@@ -1140,10 +1167,12 @@ export async function mockApiFetch<T>(
         pushNotification(
           state,
           c.patient_id,
-          "رد جديد من الطبيب",
-          `الدكتور ${currentUser.name} رد على استشارتك #${c.id}.`,
+          priorPhysicianMessages ? "رد جديد من الطبيب" : "رد الطبيب على استشارتك",
+          priorPhysicianMessages
+            ? `الدكتور ${currentUser.name} أرسل متابعة على استشارتك #${c.id}.`
+            : `الدكتور ${currentUser.name} أرسل توصياته للاستشارة #${c.id}.`,
           `/consultations/${c.id}`,
-          "consultation_physician_message",
+          priorPhysicianMessages ? "consultation_physician_message" : "consultation_replied",
           { consultation_id: c.id },
         );
       }
