@@ -4,6 +4,7 @@ type MockUser = {
   id: number;
   name: string;
   email: string;
+  password?: string;
   role: "patient" | "physician" | "admin";
   is_disabled?: boolean;
   physician_profile?: {
@@ -58,21 +59,37 @@ type MockMessage = {
   created_at: string;
 };
 
+type MockPasswordResetToken = {
+  email: string;
+  token: string;
+  expires_at: string;
+};
+
 type MockState = {
   users: MockUser[];
   medicalProfiles: MockMedicalProfile[];
   consultations: MockConsultation[];
   files: MockFile[];
   messages: MockMessage[];
+  passwordResetTokens: MockPasswordResetToken[];
   nextId: { user: number; profile: number; consultation: number; file: number; message: number };
 };
 
-const STORAGE_KEY = "gc_mock_state_v5";
+const STORAGE_KEY = "gc_mock_state_v6";
+const DEMO_DEFAULT_PASSWORD = "Care2026";
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() - offsetDays);
   return d.toISOString();
+}
+
+function userPassword(user: MockUser) {
+  return user.password ?? DEMO_DEFAULT_PASSWORD;
+}
+
+function generateResetToken() {
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function seedState(): MockState {
@@ -118,12 +135,14 @@ function seedState(): MockState {
         id: 1,
         name: "سارة أحمد",
         email: "sara.ahmad@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
       },
       {
         id: 2,
         name: "د. محمد الخالدي",
         email: "m.khalidi@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
         physician_profile: {
           id: 1,
@@ -137,6 +156,7 @@ function seedState(): MockState {
         id: 3,
         name: "د. ليلى حسن",
         email: "layla.hassan@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
         physician_profile: {
           id: 2,
@@ -150,6 +170,7 @@ function seedState(): MockState {
         id: 4,
         name: "د. عمر يوسف",
         email: "omar.yousef@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
         physician_profile: {
           id: 3,
@@ -163,6 +184,7 @@ function seedState(): MockState {
         id: 5,
         name: "مدير النظام",
         email: "admin@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
         role: "admin",
       },
     ],
@@ -238,6 +260,7 @@ function seedState(): MockState {
         created_at: nowIso(8),
       },
     ],
+    passwordResetTokens: [],
     nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2 },
   };
 }
@@ -453,8 +476,9 @@ export async function mockApiFetch<T>(
   // ── Auth ──
   if (path === "/auth/login" && method === "POST") {
     const email = String(body.email ?? "").toLowerCase().trim();
+    const password = String(body.password ?? "");
     const user = state.users.find((u) => u.email === email);
-    if (!user) {
+    if (!user || password !== userPassword(user)) {
       return { ok: false, message: "بيانات الدخول غير صحيحة.", status: 401 };
     }
     if (user.is_disabled) {
@@ -463,6 +487,84 @@ export async function mockApiFetch<T>(
   return {
       ok: true,
       data: { user: userPublic(user), token: `gc-${user.id}` } as T,
+    };
+  }
+
+  if (path === "/auth/forgot-password" && method === "POST") {
+    const email = String(body.email ?? "").toLowerCase().trim();
+    const user = state.users.find((u) => u.email === email);
+    const message = "إذا كان البريد مسجّلاً، أُرسلت تعليمات إعادة التعيين.";
+    if (user && !user.is_disabled) {
+      if (!state.passwordResetTokens) state.passwordResetTokens = [];
+      const token = generateResetToken();
+      const expires = new Date();
+      expires.setMinutes(expires.getMinutes() + 60);
+      state.passwordResetTokens = state.passwordResetTokens.filter((t) => t.email !== email);
+      state.passwordResetTokens.push({
+        email,
+        token,
+        expires_at: expires.toISOString(),
+      });
+      saveState(state);
+      const demoUrl = `/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+      return {
+        ok: true,
+        data: { message, demo_reset_token: token, demo_reset_url: demoUrl } as T,
+      };
+    }
+    return { ok: true, data: { message } as T };
+  }
+
+  if (path === "/auth/reset-password" && method === "POST") {
+    const email = String(body.email ?? "").toLowerCase().trim();
+    const token = String(body.token ?? "").trim();
+    const password = String(body.password ?? "");
+    const confirmation = String(body.password_confirmation ?? "");
+    if (password.length < 8) {
+      return { ok: false, message: "كلمة المرور قصيرة جداً.", status: 422 };
+    }
+    if (password !== confirmation) {
+      return { ok: false, message: "تأكيد كلمة المرور غير متطابق.", status: 422 };
+    }
+    if (!state.passwordResetTokens) state.passwordResetTokens = [];
+    const row = state.passwordResetTokens.find((t) => t.email === email && t.token === token);
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) {
+      return { ok: false, message: "رمز إعادة التعيين غير صالح أو منتهي.", status: 422 };
+    }
+    const user = state.users.find((u) => u.email === email);
+    if (!user) {
+      return { ok: false, message: "رمز إعادة التعيين غير صالح.", status: 422 };
+    }
+    user.password = password;
+    state.passwordResetTokens = state.passwordResetTokens.filter((t) => t.email !== email);
+    saveState(state);
+    return {
+      ok: true,
+      data: { message: "تمت إعادة تعيين كلمة المرور. يمكنك تسجيل الدخول الآن." } as T,
+    };
+  }
+
+  if (path === "/auth/change-password" && method === "POST") {
+    if (!currentUser) {
+      return { ok: false, message: "غير مصرح.", status: 401 };
+    }
+    const current = String(body.current_password ?? "");
+    const password = String(body.password ?? "");
+    const confirmation = String(body.password_confirmation ?? "");
+    if (current !== userPassword(currentUser)) {
+      return { ok: false, message: "كلمة المرور الحالية غير صحيحة.", status: 422 };
+    }
+    if (password.length < 8) {
+      return { ok: false, message: "كلمة المرور الجديدة قصيرة جداً.", status: 422 };
+    }
+    if (password !== confirmation) {
+      return { ok: false, message: "تأكيد كلمة المرور غير متطابق.", status: 422 };
+    }
+    currentUser.password = password;
+    saveState(state);
+    return {
+      ok: true,
+      data: { message: "تم تغيير كلمة المرور. سجّل دخولك من جديد." } as T,
     };
   }
 
@@ -476,6 +578,7 @@ export async function mockApiFetch<T>(
       id: state.nextId.user++,
       name: String(body.name ?? "مستخدم جديد"),
       email,
+      password: String(body.password ?? DEMO_DEFAULT_PASSWORD),
       role,
       physician_profile:
         role === "physician"
