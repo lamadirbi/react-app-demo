@@ -49,15 +49,25 @@ type MockConsultation = {
   medical_files: MockFile[];
 };
 
+type MockMessage = {
+  id: number;
+  consultation_id: number;
+  sender_id: number;
+  sender_role: "patient" | "physician";
+  body: string;
+  created_at: string;
+};
+
 type MockState = {
   users: MockUser[];
   medicalProfiles: MockMedicalProfile[];
   consultations: MockConsultation[];
   files: MockFile[];
-  nextId: { user: number; profile: number; consultation: number; file: number };
+  messages: MockMessage[];
+  nextId: { user: number; profile: number; consultation: number; file: number; message: number };
 };
 
-const STORAGE_KEY = "gc_mock_state_v3";
+const STORAGE_KEY = "gc_mock_state_v4";
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -217,7 +227,18 @@ function seedState(): MockState {
       },
     ],
     files: [certFile, labFile, xrayFile, pendingCert],
-    nextId: { user: 10, profile: 10, consultation: 10, file: 10 },
+    messages: [
+      {
+        id: 1,
+        consultation_id: 1,
+        sender_id: 2,
+        sender_role: "physician",
+        body:
+          "بعد مراجعة التحاليل والأعراض، يبدو أن الصداع مرتبط بارتفاع ضغط الدم الخفيف. أنصح بمتابعة قياس الضغط يومياً، والاستمرار على العلاج الحالي. إذا استمر الصداع أكثر من أسبوعين إضافية، يُفضّل زيارة طوارئ أو إعادة التقييم.",
+        created_at: nowIso(8),
+      },
+    ],
+    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2 },
   };
 }
 
@@ -271,7 +292,14 @@ function userPublic(u: MockUser) {
 
 function patientOf(id: number, state: MockState) {
   const u = state.users.find((x) => x.id === id);
-  return u ? { id: u.id, name: u.name, role: u.role } : null;
+  if (!u) return null;
+  const profile = state.medicalProfiles.find((p) => p.user_id === id) ?? null;
+  return {
+    id: u.id,
+    name: u.name,
+    role: u.role,
+    medical_profile: profile,
+  };
 }
 
 function physicianOf(id: number | null, state: MockState) {
@@ -289,6 +317,40 @@ function physicianOf(id: number | null, state: MockState) {
         }
       : null,
   };
+}
+
+function senderOf(id: number, state: MockState) {
+  const u = state.users.find((x) => x.id === id);
+  return u ? { id: u.id, name: u.name, role: u.role } : null;
+}
+
+function ensureLegacyPhysicianMessage(c: MockConsultation, state: MockState) {
+  if (!state.messages) state.messages = [];
+  if (!state.nextId.message) state.nextId.message = 1;
+  if (!c.physician_response?.trim()) return;
+  const hasPhysicianMsg = state.messages.some(
+    (m) => m.consultation_id === c.id && m.sender_role === "physician",
+  );
+  if (hasPhysicianMsg) return;
+  state.messages.push({
+    id: state.nextId.message++,
+    consultation_id: c.id,
+    sender_id: c.physician_id ?? 0,
+    sender_role: "physician",
+    body: c.physician_response,
+    created_at: c.responded_at ?? nowIso(0),
+  });
+}
+
+function messagesOf(c: MockConsultation, state: MockState) {
+  ensureLegacyPhysicianMessage(c, state);
+  return (state.messages ?? [])
+    .filter((m) => m.consultation_id === c.id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((m) => ({
+      ...m,
+      sender: senderOf(m.sender_id, state),
+    }));
 }
 
 function consultationListItem(c: MockConsultation, state: MockState) {
@@ -311,7 +373,9 @@ function consultationDetail(c: MockConsultation, state: MockState) {
   return {
     ...consultationListItem(c, state),
     physician: physicianOf(c.physician_id, state),
+    patient: patientOf(c.patient_id, state),
     medical_files: c.medical_files,
+    messages: messagesOf(c, state),
   };
 }
 
@@ -606,7 +670,7 @@ export async function mockApiFetch<T>(
     return { ok: true, data: { consultation: consultationDetail(newC, state) } as T };
   }
 
-  const consultMatch = path.match(/^\/consultations\/(\d+)(\/claim|\/respond)?$/);
+  const consultMatch = path.match(/^\/consultations\/(\d+)(\/claim|\/respond|\/messages)?$/);
   if (consultMatch) {
     const cId = Number(consultMatch[1]);
     const action = consultMatch[2];
@@ -637,6 +701,98 @@ export async function mockApiFetch<T>(
       } else {
         c.status = "pending";
       }
+      if (!state.messages) state.messages = [];
+      if (!state.nextId.message) state.nextId.message = 1;
+      state.messages.push({
+        id: state.nextId.message++,
+        consultation_id: c.id,
+        sender_id: currentUser.id,
+        sender_role: "physician",
+        body: responseText,
+        created_at: c.responded_at,
+      });
+      saveState(state);
+      return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
+    }
+
+    if (action === "/messages" && method === "POST") {
+      if (!currentUser) {
+        return { ok: false, message: "غير مصرح.", status: 401 };
+      }
+      const msgBody = String(body.body ?? "").trim();
+      if (msgBody.length < 2) {
+        return { ok: false, message: "نص الرسالة قصير جداً.", status: 422 };
+      }
+      ensureLegacyPhysicianMessage(c, state);
+      if (currentUser.role === "patient") {
+        if (c.patient_id !== currentUser.id) {
+          return { ok: false, message: "غير مصرح.", status: 403 };
+        }
+        const hasPhysicianReply =
+          Boolean(c.physician_response?.trim()) ||
+          (state.messages ?? []).some(
+            (m) => m.consultation_id === c.id && m.sender_role === "physician",
+          );
+        if (!hasPhysicianReply) {
+          return {
+            ok: false,
+            message: "يمكنك الرد بعد استلام إجابة الطبيب.",
+            status: 422,
+          };
+        }
+      } else if (currentUser.role === "physician") {
+        if (c.physician_id && c.physician_id !== currentUser.id) {
+          return { ok: false, message: "هذه الاستشارة لطبيب آخر.", status: 403 };
+        }
+        c.physician_id = currentUser.id;
+        c.physician_response = msgBody;
+        c.responded_at = nowIso(0);
+      } else {
+        return { ok: false, message: "غير مصرح.", status: 403 };
+      }
+      if (!state.messages) state.messages = [];
+      if (!state.nextId.message) state.nextId.message = 1;
+      const message: MockMessage = {
+        id: state.nextId.message++,
+        consultation_id: c.id,
+        sender_id: currentUser.id,
+        sender_role: currentUser.role === "physician" ? "physician" : "patient",
+        body: msgBody,
+        created_at: nowIso(0),
+      };
+      state.messages.push(message);
+      saveState(state);
+      return {
+        ok: true,
+        data: {
+          message: { ...message, sender: senderOf(message.sender_id, state) },
+          consultation: consultationDetail(c, state),
+        } as T,
+      };
+    }
+
+    if (method === "PATCH" || method === "PUT") {
+      if (!currentUser || currentUser.role !== "patient" || c.patient_id !== currentUser.id) {
+        return { ok: false, message: "غير مصرح.", status: 403 };
+      }
+      ensureLegacyPhysicianMessage(c, state);
+      const hasPhysicianReply =
+        Boolean(c.physician_response?.trim()) ||
+        (state.messages ?? []).some(
+          (m) => m.consultation_id === c.id && m.sender_role === "physician",
+        );
+      if (hasPhysicianReply) {
+        return {
+          ok: false,
+          message: "لا يمكن تعديل الاستشارة بعد رد الطبيب.",
+          status: 422,
+        };
+      }
+      const nextText = String(body.question_text ?? "").trim();
+      if (nextText.length < 10) {
+        return { ok: false, message: "نص الاستشارة قصير جداً.", status: 422 };
+      }
+      c.question_text = nextText;
       saveState(state);
       return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
     }
