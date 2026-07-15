@@ -65,6 +65,18 @@ type MockPasswordResetToken = {
   expires_at: string;
 };
 
+type MockNotification = {
+  id: string;
+  user_id: number;
+  title: string;
+  body: string;
+  href: string;
+  kind: string;
+  meta?: Record<string, unknown>;
+  read_at?: string | null;
+  created_at: string;
+};
+
 type MockState = {
   users: MockUser[];
   medicalProfiles: MockMedicalProfile[];
@@ -72,10 +84,18 @@ type MockState = {
   files: MockFile[];
   messages: MockMessage[];
   passwordResetTokens: MockPasswordResetToken[];
-  nextId: { user: number; profile: number; consultation: number; file: number; message: number };
+  notifications: MockNotification[];
+  nextId: {
+    user: number;
+    profile: number;
+    consultation: number;
+    file: number;
+    message: number;
+    notification: number;
+  };
 };
 
-const STORAGE_KEY = "gc_mock_state_v6";
+const STORAGE_KEY = "gc_mock_state_v7";
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 
 function nowIso(offsetDays = 0) {
@@ -90,6 +110,49 @@ function userPassword(user: MockUser) {
 
 function generateResetToken() {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function ensureNotifications(state: MockState) {
+  if (!state.notifications) state.notifications = [];
+  if (!state.nextId.notification) state.nextId.notification = 1;
+}
+
+function pushNotification(
+  state: MockState,
+  userId: number,
+  title: string,
+  body: string,
+  href: string,
+  kind: string,
+  meta?: Record<string, unknown>,
+) {
+  ensureNotifications(state);
+  const user = state.users.find((u) => u.id === userId);
+  if (!user || user.is_disabled) return;
+  state.notifications.unshift({
+    id: `n-${state.nextId.notification++}`,
+    user_id: userId,
+    title,
+    body,
+    href,
+    kind,
+    meta,
+    read_at: null,
+    created_at: nowIso(0),
+  });
+}
+
+function pushNotificationToAdmins(
+  state: MockState,
+  title: string,
+  body: string,
+  href: string,
+  kind: string,
+  meta?: Record<string, unknown>,
+) {
+  state.users
+    .filter((u) => u.role === "admin" && !u.is_disabled)
+    .forEach((admin) => pushNotification(state, admin.id, title, body, href, kind, meta));
 }
 
 function seedState(): MockState {
@@ -261,7 +324,41 @@ function seedState(): MockState {
       },
     ],
     passwordResetTokens: [],
-    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2 },
+    notifications: [
+      {
+        id: "n-1",
+        user_id: 1,
+        title: "رد الطبيب على استشارتك",
+        body: "الدكتور د. محمد الخالدي أرسل توصياته للاستشارة #1.",
+        href: "/consultations/1",
+        kind: "consultation_replied",
+        meta: { consultation_id: 1 },
+        read_at: null,
+        created_at: nowIso(1),
+      },
+      {
+        id: "n-2",
+        user_id: 2,
+        title: "استشارة جديدة موجّهة إليك",
+        body: "استشارة جديدة من سارة أحمد (#4).",
+        href: "/physician/consultations/4",
+        kind: "consultation_direct",
+        meta: { consultation_id: 4 },
+        read_at: null,
+        created_at: nowIso(0),
+      },
+      {
+        id: "n-3",
+        user_id: 5,
+        title: "طلب توثيق طبيب جديد",
+        body: "الدكتور د. عمر يوسف ينتظر مراجعة الشهادة.",
+        href: "/admin/physicians",
+        kind: "physician_pending",
+        read_at: null,
+        created_at: nowIso(0),
+      },
+    ],
+    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2, notification: 4 },
   };
 }
 
@@ -603,6 +700,15 @@ export async function mockApiFetch<T>(
         allergies: "",
         current_medications: "",
       });
+    } else if (role === "physician") {
+      pushNotificationToAdmins(
+        state,
+        "طلب توثيق طبيب جديد",
+        `الدكتور ${newUser.name} سجّل وينتظر مراجعة الشهادة.`,
+        "/admin/physicians",
+        "physician_pending",
+        { user_id: newUser.id },
+      );
     }
     saveState(state);
     return {
@@ -616,6 +722,79 @@ export async function mockApiFetch<T>(
       return { ok: false, message: "غير مصرح.", status: 401 };
     }
     return { ok: true, data: { user: userPublic(currentUser) } as T };
+  }
+
+  if (path === "/notifications/read-all" && method === "POST") {
+    if (!currentUser) return { ok: false, message: "غير مصرح.", status: 401 };
+    ensureNotifications(state);
+    const now = nowIso(0);
+    state.notifications.forEach((n) => {
+      if (n.user_id === currentUser.id && !n.read_at) n.read_at = now;
+    });
+    saveState(state);
+    return {
+      ok: true,
+      data: { message: "تم تعليم جميع الإشعارات كمقروءة.", unread_count: 0 } as T,
+    };
+  }
+
+  const notifReadMatch = path.match(/^\/notifications\/([^/]+)\/read$/);
+  if (notifReadMatch && method === "POST") {
+    if (!currentUser) return { ok: false, message: "غير مصرح.", status: 401 };
+    ensureNotifications(state);
+    const row = state.notifications.find(
+      (n) => n.id === notifReadMatch[1] && n.user_id === currentUser.id,
+    );
+    if (!row) return { ok: false, message: "الإشعار غير موجود.", status: 404 };
+    if (!row.read_at) row.read_at = nowIso(0);
+    saveState(state);
+    const unread = state.notifications.filter(
+      (n) => n.user_id === currentUser.id && !n.read_at,
+    ).length;
+    return {
+      ok: true,
+      data: {
+        notification: {
+          id: row.id,
+          title: row.title,
+          body: row.body,
+          href: row.href,
+          kind: row.kind,
+          meta: row.meta ?? {},
+          read_at: row.read_at,
+          created_at: row.created_at,
+        },
+        unread_count: unread,
+      } as T,
+    };
+  }
+
+  if ((path === "/notifications" || path.startsWith("/notifications?")) && method === "GET") {
+    if (!currentUser) return { ok: false, message: "غير مصرح.", status: 401 };
+    ensureNotifications(state);
+    const unreadOnly = path.includes("unread_only=1");
+    let rows = state.notifications.filter((n) => n.user_id === currentUser.id);
+    if (unreadOnly) rows = rows.filter((n) => !n.read_at);
+    rows = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 20);
+    const unread = state.notifications.filter(
+      (n) => n.user_id === currentUser.id && !n.read_at,
+    ).length;
+    return {
+      ok: true,
+      data: {
+        data: rows.map((n) => ({
+          id: n.id,
+          title: n.title,
+          body: n.body,
+          href: n.href,
+          kind: n.kind,
+          meta: n.meta ?? {},
+          read_at: n.read_at ?? null,
+          created_at: n.created_at,
+        })),
+        unread_count: unread,
+      } as T,
+    };
   }
 
   // ── Medical profile ──
@@ -693,6 +872,14 @@ export async function mockApiFetch<T>(
       if (body.resubmit === true && profile.verification_status !== "approved") {
         profile.verification_status = "pending";
         profile.rejection_reason = null;
+        pushNotificationToAdmins(
+          state,
+          "إعادة إرسال طلب توثيق",
+          `الدكتور ${currentUser.name} أعاد إرسال طلب التوثيق للمراجعة.`,
+          "/admin/physicians",
+          "physician_resubmit",
+          { user_id: currentUser.id },
+        );
       }
       // Keep user object in state in sync
       const userIdx = state.users.findIndex((u) => u.id === currentUser.id);
@@ -799,6 +986,20 @@ export async function mockApiFetch<T>(
       medical_files: attached,
     };
     state.consultations.unshift(newC);
+    if (assignmentMode === "direct" && physicianId) {
+      const physician = state.users.find((u) => u.id === physicianId);
+      if (physician) {
+        pushNotification(
+          state,
+          physicianId,
+          "استشارة جديدة موجّهة إليك",
+          `استشارة جديدة من ${currentUser.name} (#${newC.id}).`,
+          `/physician/consultations/${newC.id}`,
+          "consultation_direct",
+          { consultation_id: newC.id },
+        );
+      }
+    }
     saveState(state);
     return { ok: true, data: { consultation: consultationDetail(newC, state) } as T };
   }
@@ -818,6 +1019,18 @@ export async function mockApiFetch<T>(
         return { ok: false, message: "تم استلام الحالة من طبيب آخر.", status: 409 };
       }
       c.physician_id = currentUser.id;
+      const patient = state.users.find((u) => u.id === c.patient_id);
+      if (patient) {
+        pushNotification(
+          state,
+          patient.id,
+          "تم استلام استشارتك",
+          `الدكتور ${currentUser.name} استلم استشارتك #${c.id}.`,
+          `/consultations/${c.id}`,
+          "consultation_claimed",
+          { consultation_id: c.id },
+        );
+      }
       saveState(state);
       return { ok: true, data: { consultation: consultationListItem(c, state) } as T };
     }
@@ -844,6 +1057,18 @@ export async function mockApiFetch<T>(
         body: responseText,
         created_at: c.responded_at,
       });
+      const patient = state.users.find((u) => u.id === c.patient_id);
+      if (patient) {
+        pushNotification(
+          state,
+          patient.id,
+          "رد الطبيب على استشارتك",
+          `الدكتور ${currentUser.name} أرسل توصياته للاستشارة #${c.id}.`,
+          `/consultations/${c.id}`,
+          "consultation_replied",
+          { consultation_id: c.id },
+        );
+      }
       saveState(state);
       return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
     }
@@ -894,6 +1119,27 @@ export async function mockApiFetch<T>(
         created_at: nowIso(0),
       };
       state.messages.push(message);
+      if (currentUser.role === "patient" && c.physician_id) {
+        pushNotification(
+          state,
+          c.physician_id,
+          "رد جديد من المراجع",
+          `${currentUser.name} أرسل متابعة على الاستشارة #${c.id}.`,
+          `/physician/consultations/${c.id}`,
+          "consultation_patient_message",
+          { consultation_id: c.id },
+        );
+      } else if (currentUser.role === "physician") {
+        pushNotification(
+          state,
+          c.patient_id,
+          "رد جديد من الطبيب",
+          `الدكتور ${currentUser.name} رد على استشارتك #${c.id}.`,
+          `/consultations/${c.id}`,
+          "consultation_physician_message",
+          { consultation_id: c.id },
+        );
+      }
       saveState(state);
       return {
         ok: true,
@@ -1040,6 +1286,16 @@ export async function mockApiFetch<T>(
     const u = state.users.find((x) => x.id === Number(disableMatch[1]));
     if (!u) return { ok: false, message: "المستخدم غير موجود.", status: 404 };
     u.is_disabled = Boolean(body.disabled ?? body.is_disabled);
+    if (u.is_disabled) {
+      pushNotification(
+        state,
+        u.id,
+        "تم تعطيل حسابك",
+        "تم تعطيل حسابك من قبل الإدارة. تواصل مع الدعم إذا كان ذلك بالخطأ.",
+        "/login",
+        "account_disabled",
+      );
+    }
     saveState(state);
     return {
       ok: true,
@@ -1061,10 +1317,26 @@ export async function mockApiFetch<T>(
     if (action === "approve") {
       user.physician_profile.verification_status = "approved";
       user.physician_profile.rejection_reason = null;
+      pushNotification(
+        state,
+        user.id,
+        "تم توثيق حسابك",
+        "وافقت الإدارة على طلب توثيق حسابك كطبيب. يمكنك الآن استقبال الاستشارات.",
+        "/physician/dashboard",
+        "physician_approved",
+      );
     } else {
       user.physician_profile.verification_status = "rejected";
       user.physician_profile.rejection_reason = String(
         body.reason ?? body.rejection_reason ?? "لم تستوفِ متطلبات التوثيق.",
+      );
+      pushNotification(
+        state,
+        user.id,
+        "تم رفض طلب التوثيق",
+        "رُفض طلب توثيق حسابك. يمكنك مراجعة السبب وإعادة الإرسال.",
+        "/physician/dashboard",
+        "physician_rejected",
       );
     }
     saveState(state);
