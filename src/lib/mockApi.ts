@@ -590,7 +590,8 @@ export async function mockApiFetch<T>(
   if (path === "/auth/forgot-password" && method === "POST") {
     const email = String(body.email ?? "").toLowerCase().trim();
     const user = state.users.find((u) => u.email === email);
-    const message = "إذا كان البريد مسجّلاً، أُرسلت تعليمات إعادة التعيين.";
+    const message =
+      "تم تجهيز رابط إعادة التعيين. في النسخة التجريبية لا يُرسل بريد حقيقي — استخدم الرابط أو الرمز في الاستجابة.";
     if (user && !user.is_disabled) {
       if (!state.passwordResetTokens) state.passwordResetTokens = [];
       const token = generateResetToken();
@@ -609,7 +610,13 @@ export async function mockApiFetch<T>(
         data: { message, demo_reset_token: token, demo_reset_url: demoUrl } as T,
       };
     }
-    return { ok: true, data: { message } as T };
+    return {
+      ok: true,
+      data: {
+        message:
+          "لم يُعثر على بريد مسجّل. جرّب أحد حسابات «دخول سريع» من صفحة تسجيل الدخول.",
+      } as T,
+    };
   }
 
   if (path === "/auth/reset-password" && method === "POST") {

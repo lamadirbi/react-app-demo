@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { apiFetch, setToken } from "@/lib/api";
+import { apiFetch, MOCK_MODE, setToken } from "@/lib/api";
 import { routeForRole, setAuthSession, type MeUser } from "@/lib/auth";
+import { QUICK_LOGIN_ACCOUNTS } from "@/lib/mockApi";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -20,16 +21,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
+  async function loginWith(rawEmail: string, rawPassword: string) {
+    const normalizedEmail = rawEmail.trim().toLowerCase();
     setEmail(normalizedEmail);
+    setPassword(rawPassword);
     setLoading(true);
     setError(null);
 
     const res = await apiFetch<LoginResponse>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email: normalizedEmail, password }),
+      body: JSON.stringify({ email: normalizedEmail, password: rawPassword }),
       auth: false,
     });
 
@@ -46,6 +47,11 @@ export default function LoginPage() {
     setToken(res.data.token);
     setAuthSession(res.data.user as MeUser);
     window.location.href = routeForRole(res.data.user.role);
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await loginWith(email, password);
   }
 
   return (
@@ -72,10 +78,44 @@ export default function LoginPage() {
               مرحباً بعودتك
             </h1>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              سجّل دخولك للوصول إلى لوحة التحكم.
+              سجّل دخولك للوصول إلى لوحة التحكم ومتابعة الاستشارات.
             </p>
 
-            <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+            {MOCK_MODE ? (
+              <div className="mt-5 rounded-2xl border border-(--border) bg-(--surface-2) p-4">
+                <p className="text-sm font-semibold text-foreground">دخول سريع</p>
+                <p className="mt-1 text-xs text-(--muted)">
+                  اختر حساباً للمتابعة مباشرة.
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {QUICK_LOGIN_ACCOUNTS.map((acc) => (
+                    <Button
+                      key={acc.email}
+                      type="button"
+                      variant="secondary"
+                      disabled={loading}
+                      onClick={() => loginWith(acc.email, acc.password)}
+                      className="h-auto w-full justify-between gap-2 px-4 py-3 text-start"
+                    >
+                      <span className="font-semibold">{acc.role}</span>
+                      <span className="text-xs font-normal text-(--muted)">{acc.name}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className={MOCK_MODE ? "my-5 flex items-center gap-3" : "mt-6"}>
+              {MOCK_MODE ? (
+                <>
+                  <div className="h-px flex-1 bg-(--border)" />
+                  <span className="text-xs text-(--muted)">أو ادخل ببياناتك</span>
+                  <div className="h-px flex-1 bg-(--border)" />
+                </>
+              ) : null}
+            </div>
+
+            <form onSubmit={onSubmit} className="grid gap-4">
               <label className="grid gap-1">
                 <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                   البريد الإلكتروني
