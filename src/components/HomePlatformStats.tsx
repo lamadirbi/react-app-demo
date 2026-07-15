@@ -59,11 +59,12 @@ export function HomePlatformStats() {
       className={`mt-10 grid grid-cols-3 gap-3 transition-opacity duration-300 ${
         ready ? "opacity-100" : "opacity-60"
       }`}
+      aria-live="polite"
     >
       {cards.map((s) => (
         <div key={s.label} className="gc-stat-card">
           <div className="text-xl font-extrabold text-(--gc-accent) tabular-nums sm:text-2xl">
-            {s.value}
+            {ready ? s.value : "—"}
           </div>
           <div className="mt-0.5 text-xs text-(--muted)">{s.label}</div>
         </div>

@@ -95,7 +95,7 @@ type MockState = {
   };
 };
 
-const STORAGE_KEY = "gc_mock_state_v8";
+const STORAGE_KEY = "gc_mock_state_v9";
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 
 function nowIso(offsetDays = 0) {
@@ -223,12 +223,58 @@ function seedState(): MockState {
     created_at: nowIso(3),
   };
 
+  const sugarFile: MockFile = {
+    id: 6,
+    original_name: "تحليل-سكر-تراكمي.pdf",
+    mime_type: "application/pdf",
+    size_bytes: 96_000,
+    file_kind: "pdf",
+    created_at: nowIso(9),
+  };
+
+  const oldBloodFile: MockFile = {
+    id: 7,
+    original_name: "تحليل-دم-قديم.pdf",
+    mime_type: "application/pdf",
+    size_bytes: 110_000,
+    file_kind: "pdf",
+    created_at: nowIso(16),
+  };
+
   return {
     users: [
       {
         id: 1,
         name: "سارة أحمد",
         email: "sara.ahmad@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "patient",
+      },
+      {
+        id: 7,
+        name: "علي حسن",
+        email: "ali.hassan@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "patient",
+      },
+      {
+        id: 8,
+        name: "نور خالد",
+        email: "noor.khaled@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "patient",
+      },
+      {
+        id: 9,
+        name: "يوسف سمير",
+        email: "yousef.samir@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "patient",
+      },
+      {
+        id: 10,
+        name: "هبة نضال",
+        email: "heba.nidal@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
       },
@@ -256,6 +302,20 @@ function seedState(): MockState {
           id: 2,
           specialty: "طب الأطفال",
           certificate: "تخصص طب أطفال — جامعة القاهرة",
+          verification_status: "approved",
+          certificate_files: [certFile],
+        },
+      },
+      {
+        id: 11,
+        name: "د. كريم نصار",
+        email: "k.nassar@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "physician",
+        physician_profile: {
+          id: 5,
+          specialty: "طب الأسرة",
+          certificate: "اختصاص طب أسرة — وزارة الصحة",
           verification_status: "approved",
           certificate_files: [certFile],
         },
@@ -309,6 +369,46 @@ function seedState(): MockState {
         allergies: "البنسلين",
         current_medications: "أملوديبين 5mg يومياً",
       },
+      {
+        id: 2,
+        user_id: 7,
+        height_cm: 175,
+        weight_kg: 82,
+        chronic_diseases: "ربو خفيف",
+        medical_history: "نوبات ربو موسمية، يستخدم بخاخ عند الحاجة.",
+        allergies: "غبار الطلع",
+        current_medications: "بخاخ فنتولين عند اللزوم",
+      },
+      {
+        id: 3,
+        user_id: 8,
+        height_cm: 158,
+        weight_kg: 54,
+        chronic_diseases: "لا يوجد",
+        medical_history: "ولادة قيصرية عام 2022.",
+        allergies: "لا توجد",
+        current_medications: "حديد وفيتامين د",
+      },
+      {
+        id: 4,
+        user_id: 9,
+        height_cm: 180,
+        weight_kg: 95,
+        chronic_diseases: "سمنة، آلام أسفل الظهر",
+        medical_history: "إنزلاق غضروفي قطني خفيف حسب رنين 2024.",
+        allergies: "الأسبرين",
+        current_medications: "باراسيتامول عند الحاجة",
+      },
+      {
+        id: 5,
+        user_id: 10,
+        height_cm: 165,
+        weight_kg: 60,
+        chronic_diseases: "فقر دم محسّن",
+        medical_history: "عولج فقر الدم عام 2023.",
+        allergies: "لا توجد",
+        current_medications: "لا أدوية مزمنة",
+      },
     ],
     consultations: [
       {
@@ -328,6 +428,62 @@ function seedState(): MockState {
       {
         id: 2,
         patient_id: 1,
+        physician_id: 2,
+        assignment_mode: "direct",
+        question_text:
+          "نبض سريع أحياناً عند صعود الدرج مع تعب عام. هل أحتاج تخطيط قلب؟",
+        status: "completed",
+        submitted_at: nowIso(8),
+        responded_at: nowIso(7),
+        physician_response:
+          "سجّلي النبض في الراحة والجهد ليومين، وراجعي لإجراء تخطيط قلب. استمري على الأدوية الحالية. أي ألم صدر أو ضيق تنفس شديد → الطوارئ فوراً.",
+        medical_files: [sugarFile],
+      },
+      {
+        id: 3,
+        patient_id: 7,
+        physician_id: 11,
+        assignment_mode: "queue",
+        question_text:
+          "سعال ليلي منذ أسبوع مع صفير خفيف. لا حمى حالياً. هل أبدأ بخاخ ستيرويد؟",
+        status: "completed",
+        submitted_at: nowIso(12),
+        responded_at: nowIso(11),
+        physician_response:
+          "ابدأ الفنتولين عند الحاجة كل 4–6 ساعات. إذا استمر الصفير أو ظهرت حمى راجع عيادة الصدر. لا تبدأ ستيرويد دون تقييم حضوري.",
+        medical_files: [],
+      },
+      {
+        id: 4,
+        patient_id: 9,
+        physician_id: 11,
+        assignment_mode: "direct",
+        question_text:
+          "وزن 95 كغ وطول 180. أحس بتعب بعد الأكل الدسم. أريد خطة غذائية بسيطة.",
+        status: "completed",
+        submitted_at: nowIso(5),
+        responded_at: nowIso(4),
+        physician_response:
+          "قلّل المشروبات المحلّاة والخبز الأبيض، زد الخضار والبقول، وامشِ 20–30 دقيقة يومياً. أعد قياس الوزن بعد أسبوعين.",
+        medical_files: [],
+      },
+      {
+        id: 5,
+        patient_id: 10,
+        physician_id: 3,
+        assignment_mode: "queue",
+        question_text:
+          "دوخة خفيفة عند الوقوف السريع، وتحاليل قديمة أظهرت هيموغلوبين 10.8. هل أعيد تحليل دم؟",
+        status: "completed",
+        submitted_at: nowIso(15),
+        responded_at: nowIso(14),
+        physician_response:
+          "نعم يُفضَّل إعادة صورة دم كاملة ومخزون الحديد. اشربي سوائل كافية وتجنّبي النهوض المفاجئ.",
+        medical_files: [oldBloodFile],
+      },
+      {
+        id: 6,
+        patient_id: 8,
         physician_id: null,
         assignment_mode: "queue",
         question_text:
@@ -337,7 +493,7 @@ function seedState(): MockState {
         medical_files: [],
       },
       {
-        id: 3,
+        id: 7,
         patient_id: 1,
         physician_id: 2,
         assignment_mode: "queue",
@@ -347,7 +503,7 @@ function seedState(): MockState {
         medical_files: [labFile],
       },
       {
-        id: 4,
+        id: 8,
         patient_id: 1,
         physician_id: 2,
         assignment_mode: "direct",
@@ -357,8 +513,19 @@ function seedState(): MockState {
         submitted_at: nowIso(2),
         medical_files: [],
       },
+      {
+        id: 9,
+        patient_id: 8,
+        physician_id: 3,
+        assignment_mode: "direct",
+        question_text:
+          "ابنتي عمرها 3 سنوات، حرارة 38.5 منذ أمس مع احتقان أنف. متى أراجع الطوارئ؟",
+        status: "pending",
+        submitted_at: nowIso(0),
+        medical_files: [],
+      },
     ],
-    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert],
+    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert, sugarFile, oldBloodFile],
     messages: [
       {
         id: 1,
@@ -366,8 +533,24 @@ function seedState(): MockState {
         sender_id: 2,
         sender_role: "physician",
         body:
-          "بعد مراجعة التحاليل والأعراض، يبدو أن الصداع مرتبط بارتفاع ضغط الدم الخفيف. أنصح بمتابعة قياس الضغط يومياً، والاستمرار على العلاج الحالي. إذا استمر الصداع أكثر من أسبوعين إضافية، يُفضّل زيارة طوارئ أو إعادة التقييم.",
+          "بعد مراجعة التحاليل والأعراض، يبدو أن الصداع مرتبط بارتفاع ضغط الدم الخفيف. أنصح بمتابعة قياس الضغط يومياً، والاستمرار على العلاج الحالي.",
         created_at: nowIso(8),
+      },
+      {
+        id: 2,
+        consultation_id: 2,
+        sender_id: 1,
+        sender_role: "patient",
+        body: "شكراً دكتور. سجلت النبض صباحاً 88 وفي المشي 110.",
+        created_at: nowIso(6),
+      },
+      {
+        id: 3,
+        consultation_id: 2,
+        sender_id: 2,
+        sender_role: "physician",
+        body: "ممتاز. أرسلي نتيجة التخطيط هنا بعد إجرائه لنراجعها معاً.",
+        created_at: nowIso(5),
       },
     ],
     passwordResetTokens: [],
@@ -387,10 +570,10 @@ function seedState(): MockState {
         id: "n-2",
         user_id: 2,
         title: "استشارة جديدة موجّهة إليك",
-        body: "استشارة جديدة من سارة أحمد (#4).",
-        href: "/physician/consultations/4",
+        body: "استشارة جديدة من سارة أحمد (#8).",
+        href: "/physician/consultations/8",
         kind: "consultation_direct",
-        meta: { consultation_id: 4 },
+        meta: { consultation_id: 8 },
         read_at: null,
         created_at: nowIso(0),
       },
@@ -415,7 +598,14 @@ function seedState(): MockState {
         created_at: nowIso(0),
       },
     ],
-    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2, notification: 5 },
+    nextId: {
+      user: 12,
+      profile: 6,
+      consultation: 10,
+      file: 8,
+      message: 4,
+      notification: 5,
+    },
   };
 }
 
