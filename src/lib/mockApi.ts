@@ -95,7 +95,7 @@ type MockState = {
   };
 };
 
-const STORAGE_KEY = "gc_mock_state_v7";
+const STORAGE_KEY = "gc_mock_state_v8";
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 
 function nowIso(offsetDays = 0) {
@@ -214,6 +214,15 @@ function seedState(): MockState {
     created_at: nowIso(2),
   };
 
+  const rejectedCert: MockFile = {
+    id: 5,
+    original_name: "شهادة-جلدية-قيد-المراجعة.pdf",
+    mime_type: "application/pdf",
+    size_bytes: 210_000,
+    file_kind: "pdf",
+    created_at: nowIso(3),
+  };
+
   return {
     users: [
       {
@@ -263,6 +272,22 @@ function seedState(): MockState {
           certificate: "شهادة مزاولة المهنة",
           verification_status: "pending",
           certificate_files: [pendingCert],
+        },
+      },
+      {
+        id: 6,
+        name: "د. ليلى منصور",
+        email: "laila.mansour@gazacare.ps",
+        password: DEMO_DEFAULT_PASSWORD,
+        role: "physician",
+        physician_profile: {
+          id: 4,
+          specialty: "الأمراض الجلدية",
+          certificate: "شهادة اختصاص جلدية — بحاجة إلى تحديث المرفقات.",
+          verification_status: "rejected",
+          rejection_reason:
+            "صورة الشهادة غير واضحة. يُرجى رفع نسخة أوضح ثم إرسال الطلب مجدداً.",
+          certificate_files: [rejectedCert],
         },
       },
       {
@@ -333,7 +358,7 @@ function seedState(): MockState {
         medical_files: [],
       },
     ],
-    files: [certFile, labFile, xrayFile, pendingCert],
+    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert],
     messages: [
       {
         id: 1,
@@ -379,8 +404,18 @@ function seedState(): MockState {
         read_at: null,
         created_at: nowIso(0),
       },
+      {
+        id: "n-4",
+        user_id: 6,
+        title: "تم رفض طلب التوثيق",
+        body: "صورة الشهادة غير واضحة. يُرجى رفع نسخة أوضح ثم إرسال الطلب مجدداً.",
+        href: "/physician/dashboard",
+        kind: "physician_rejected",
+        read_at: null,
+        created_at: nowIso(0),
+      },
     ],
-    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2, notification: 4 },
+    nextId: { user: 10, profile: 10, consultation: 10, file: 10, message: 2, notification: 5 },
   };
 }
 
@@ -1446,6 +1481,12 @@ export const QUICK_LOGIN_ACCOUNTS = [
     role: "طبيب",
     name: "د. محمد الخالدي",
     email: "m.khalidi@gazacare.ps",
+    password: "Care2026",
+  },
+  {
+    role: "طبيب مرفوض",
+    name: "د. ليلى منصور",
+    email: "laila.mansour@gazacare.ps",
     password: "Care2026",
   },
   {
