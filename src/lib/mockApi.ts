@@ -823,6 +823,12 @@ export async function mockApiFetch<T>(
         return { ok: false, message: "نص الاستشارة قصير جداً.", status: 422 };
       }
       c.question_text = nextText;
+      if (Array.isArray(body.file_ids) || Array.isArray(body.medical_file_ids)) {
+        const ids = ((body.file_ids as number[]) ?? (body.medical_file_ids as number[]) ?? [])
+          .map(Number)
+          .filter((n) => Number.isFinite(n));
+        c.medical_files = state.files.filter((f) => ids.includes(f.id));
+      }
       saveState(state);
       return { ok: true, data: { consultation: consultationDetail(c, state) } as T };
     }
