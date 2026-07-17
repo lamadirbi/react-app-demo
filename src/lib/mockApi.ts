@@ -7,6 +7,8 @@ type MockUser = {
   password?: string;
   role: "patient" | "physician" | "admin";
   is_disabled?: boolean;
+  caregiver_mode_enabled?: boolean;
+  caregiver_relationship?: string | null;
   physician_profile?: {
     id: number;
     specialty: string;
@@ -47,6 +49,7 @@ type MockConsultation = {
   submitted_at: string;
   responded_at?: string | null;
   physician_response?: string | null;
+  case_severity?: string | null;
   medical_files: MockFile[];
 };
 
@@ -104,7 +107,7 @@ const PREV_STORAGE_KEYS = [
 ];
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 /** Bump when the demo seed must replace browsers that already saved this STORAGE_KEY. */
-const SEED_REVISION = 2;
+const SEED_REVISION = 3;
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -674,6 +677,8 @@ function userPublic(u: MockUser) {
     email: u.email,
     role: u.role,
     is_disabled: u.is_disabled ?? false,
+    caregiver_mode_enabled: u.caregiver_mode_enabled ?? false,
+    caregiver_relationship: u.caregiver_relationship ?? null,
     physician_profile: u.physician_profile
       ? {
           specialty: u.physician_profile.specialty,
@@ -693,6 +698,8 @@ function patientOf(id: number, state: MockState) {
     id: u.id,
     name: u.name,
     role: u.role,
+    caregiver_mode_enabled: u.caregiver_mode_enabled ?? false,
+    caregiver_relationship: u.caregiver_relationship ?? null,
     medical_profile: profile,
   };
 }
@@ -761,6 +768,7 @@ function consultationListItem(c: MockConsultation, state: MockState) {
     submitted_at: c.submitted_at,
     responded_at: c.responded_at ?? null,
     physician_response: c.physician_response ?? null,
+    case_severity: c.case_severity ?? null,
     physician_id: c.physician_id,
     assignment_mode: c.assignment_mode ?? (c.physician_id ? "direct" : "queue"),
     physician: physician ? { id: physician.id, name: physician.name, role: physician.role } : null,
@@ -887,7 +895,6 @@ export async function mockApiFetch<T>(
     return {
       ok: true,
       data: {
-        message:
         message: "البريد غير مسجّل. جرّبي حساباً من «دخول سريع».",
       } as T,
     };
@@ -1002,6 +1009,27 @@ export async function mockApiFetch<T>(
     if (!currentUser) {
       return { ok: false, message: "غير مصرح.", status: 401 };
     }
+    return { ok: true, data: { user: userPublic(currentUser) } as T };
+  }
+
+  if (path === "/caregiver-mode" && method === "PATCH") {
+    if (!currentUser || currentUser.role !== "patient") {
+      return { ok: false, message: "غير مصرح.", status: 403 };
+    }
+    const enabled = Boolean(body.enabled);
+    const relationship = typeof body.relationship === "string" ? body.relationship.trim() : "";
+    const allowed = ["son", "daughter", "spouse", "father", "mother", "brother", "sister"];
+    if (enabled) {
+      if (!relationship || !allowed.includes(relationship)) {
+        return { ok: false, message: "يرجى اختيار صلة القرابة.", status: 422 };
+      }
+      currentUser.caregiver_mode_enabled = true;
+      currentUser.caregiver_relationship = relationship;
+    } else {
+      currentUser.caregiver_mode_enabled = false;
+      currentUser.caregiver_relationship = null;
+    }
+    saveState(state);
     return { ok: true, data: { user: userPublic(currentUser) } as T };
   }
 
@@ -1321,10 +1349,16 @@ export async function mockApiFetch<T>(
         return { ok: false, message: "غير مصرح.", status: 403 };
       }
       const responseText = String(body.response ?? body.physician_response ?? "");
+      const caseSeverity = String(body.case_severity ?? "").trim();
+      const allowedSeverity = ["mild", "moderate", "critical"];
+      if (!allowedSeverity.includes(caseSeverity)) {
+        return { ok: false, message: "يرجى اختيار مدى خطورة الحالة.", status: 422 };
+      }
       const hadPhysicianReply =
         Boolean(c.physician_response?.trim()) ||
         (state.messages ?? []).some((m) => m.consultation_id === c.id && m.sender_role === "physician");
       c.physician_response = responseText;
+      c.case_severity = caseSeverity;
       c.responded_at = nowIso(0);
       if (body.mark_completed !== false) {
         c.status = "completed";
@@ -1528,6 +1562,8 @@ export async function mockApiFetch<T>(
       email: u.email,
       role: u.role,
       is_disabled: u.is_disabled ?? false,
+      caregiver_mode_enabled: u.caregiver_mode_enabled ?? false,
+      caregiver_relationship: u.caregiver_relationship ?? null,
       physician_profile: u.physician_profile
         ? {
             specialty: u.physician_profile.specialty,
