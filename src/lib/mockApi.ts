@@ -15,6 +15,8 @@ type MockUser = {
     certificate: string;
     verification_status: "pending" | "approved" | "rejected";
     rejection_reason?: string | null;
+    verified_at?: string | null;
+    verified_by_name?: string | null;
     certificate_files?: MockFile[];
   } | null;
 };
@@ -301,6 +303,7 @@ function seedState(): MockState {
           specialty: "طب القلب",
           certificate: "البورد الأمريكي في أمراض القلب",
           verification_status: "approved",
+          verified_by_name: "مدير النظام",
           certificate_files: [certFile],
         },
       },
@@ -315,6 +318,7 @@ function seedState(): MockState {
           specialty: "طب الأطفال",
           certificate: "تخصص طب أطفال — جامعة القاهرة",
           verification_status: "approved",
+          verified_by_name: "مدير النظام",
           certificate_files: [certFile],
         },
       },
@@ -329,6 +333,7 @@ function seedState(): MockState {
           specialty: "طب الأسرة",
           certificate: "اختصاص طب أسرة — وزارة الصحة",
           verification_status: "approved",
+          verified_by_name: "مدير النظام",
           certificate_files: [certFile],
         },
       },
@@ -357,6 +362,7 @@ function seedState(): MockState {
           specialty: "الأمراض الجلدية",
           certificate: "شهادة اختصاص جلدية — بحاجة إلى تحديث المرفقات.",
           verification_status: "rejected",
+          verified_by_name: "مدير النظام",
           rejection_reason:
             "صورة الشهادة غير واضحة. يُرجى رفع نسخة أوضح ثم إرسال الطلب مجدداً.",
           certificate_files: [rejectedCert],
@@ -1568,6 +1574,10 @@ export async function mockApiFetch<T>(
         ? {
             specialty: u.physician_profile.specialty,
             verification_status: u.physician_profile.verification_status,
+            verified_at: u.physician_profile.verified_at ?? null,
+            verifier: u.physician_profile.verified_by_name
+              ? { id: 0, name: u.physician_profile.verified_by_name }
+              : null,
           }
         : null,
     };
@@ -1642,6 +1652,8 @@ export async function mockApiFetch<T>(
     if (action === "approve") {
       user.physician_profile.verification_status = "approved";
       user.physician_profile.rejection_reason = null;
+      user.physician_profile.verified_at = new Date().toISOString();
+      user.physician_profile.verified_by_name = currentUser?.name ?? "مدير النظام";
       pushNotification(
         state,
         user.id,
@@ -1655,6 +1667,8 @@ export async function mockApiFetch<T>(
       user.physician_profile.rejection_reason = String(
         body.reason ?? body.rejection_reason ?? "لم تستوفِ متطلبات التوثيق.",
       );
+      user.physician_profile.verified_at = new Date().toISOString();
+      user.physician_profile.verified_by_name = currentUser?.name ?? "مدير النظام";
       pushNotification(
         state,
         user.id,
