@@ -17,6 +17,7 @@ type MockUser = {
     rejection_reason?: string | null;
     verified_at?: string | null;
     verified_by_name?: string | null;
+    profile_photo_file_id?: number | null;
     certificate_files?: MockFile[];
   } | null;
 };
@@ -24,6 +25,8 @@ type MockUser = {
 type MockMedicalProfile = {
   id: number;
   user_id: number;
+  gender: string | null;
+  age: number | null;
   height_cm: number | null;
   weight_kg: number | null;
   chronic_diseases: string;
@@ -88,6 +91,7 @@ type MockState = {
   medicalProfiles: MockMedicalProfile[];
   consultations: MockConsultation[];
   files: MockFile[];
+  fileBlobs?: Record<number, string>;
   messages: MockMessage[];
   passwordResetTokens: MockPasswordResetToken[];
   notifications: MockNotification[];
@@ -101,15 +105,17 @@ type MockState = {
   };
 };
 
-const STORAGE_KEY = "gc_mock_state_v10";
+const STORAGE_KEY = "gc_mock_state_v12";
 const PREV_STORAGE_KEYS = [
   "gc_mock_state_v7",
   "gc_mock_state_v8",
   "gc_mock_state_v9",
+  "gc_mock_state_v10",
+  "gc_mock_state_v11",
 ];
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 /** Bump when the demo seed must replace browsers that already saved this STORAGE_KEY. */
-const SEED_REVISION = 3;
+const SEED_REVISION = 5;
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -254,6 +260,15 @@ function seedState(): MockState {
     created_at: nowIso(16),
   };
 
+  const physicianPhotoFile: MockFile = {
+    id: 8,
+    original_name: "صورة-طبيب.jpg",
+    mime_type: "image/jpeg",
+    size_bytes: 84_000,
+    file_kind: "image",
+    created_at: nowIso(20),
+  };
+
   return {
     seed_revision: SEED_REVISION,
     users: [
@@ -304,6 +319,7 @@ function seedState(): MockState {
           certificate: "البورد الأمريكي في أمراض القلب",
           verification_status: "approved",
           verified_by_name: "مدير النظام",
+          profile_photo_file_id: physicianPhotoFile.id,
           certificate_files: [certFile],
         },
       },
@@ -380,6 +396,8 @@ function seedState(): MockState {
       {
         id: 1,
         user_id: 1,
+        gender: "female",
+        age: 34,
         height_cm: 165,
         weight_kg: 62,
         chronic_diseases: "ضغط دم خفيف",
@@ -390,6 +408,8 @@ function seedState(): MockState {
       {
         id: 2,
         user_id: 7,
+        gender: "male",
+        age: 41,
         height_cm: 175,
         weight_kg: 82,
         chronic_diseases: "ربو خفيف",
@@ -400,6 +420,8 @@ function seedState(): MockState {
       {
         id: 3,
         user_id: 8,
+        gender: "female",
+        age: 28,
         height_cm: 158,
         weight_kg: 54,
         chronic_diseases: "لا يوجد",
@@ -410,6 +432,8 @@ function seedState(): MockState {
       {
         id: 4,
         user_id: 9,
+        gender: "male",
+        age: 52,
         height_cm: 180,
         weight_kg: 95,
         chronic_diseases: "سمنة، آلام أسفل الظهر",
@@ -420,6 +444,8 @@ function seedState(): MockState {
       {
         id: 5,
         user_id: 10,
+        gender: "female",
+        age: 36,
         height_cm: 165,
         weight_kg: 60,
         chronic_diseases: "فقر دم محسّن",
@@ -543,7 +569,8 @@ function seedState(): MockState {
         medical_files: [],
       },
     ],
-    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert, sugarFile, oldBloodFile],
+    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert, sugarFile, oldBloodFile, physicianPhotoFile],
+    fileBlobs: {},
     messages: [
       {
         id: 1,
@@ -649,6 +676,7 @@ function loadState(): MockState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as MockState;
+      if (!parsed.fileBlobs) parsed.fileBlobs = {};
       if (!isStaleSeed(parsed)) return parsed;
     }
   } catch {
@@ -810,6 +838,16 @@ function parseBody(options: RequestInit): Record<string, unknown> {
 
 function delay(ms = 300) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fileToDataUrl(file: File): Promise<string | null> {
+  if (typeof FileReader === "undefined") return null;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
 }
 
 function makePlaceholderBlob(file: MockFile): Blob {
@@ -987,6 +1025,8 @@ export async function mockApiFetch<T>(
       state.medicalProfiles.push({
         id: state.nextId.profile++,
         user_id: newUser.id,
+        gender: null,
+        age: null,
         height_cm: null,
         weight_kg: null,
         chronic_diseases: "",
@@ -1122,6 +1162,8 @@ export async function mockApiFetch<T>(
       profile = {
         id: state.nextId.profile++,
         user_id: currentUser.id,
+        gender: null,
+        age: null,
         height_cm: null,
         weight_kg: null,
         chronic_diseases: "",
@@ -1136,6 +1178,8 @@ export async function mockApiFetch<T>(
     }
     if (method === "PUT") {
       Object.assign(profile, {
+        gender: body.gender ?? profile.gender,
+        age: body.age ?? profile.age,
         height_cm: body.height_cm ?? profile.height_cm,
         weight_kg: body.weight_kg ?? profile.weight_kg,
         chronic_diseases: body.chronic_diseases ?? profile.chronic_diseases,
@@ -1171,6 +1215,7 @@ export async function mockApiFetch<T>(
             specialty: profile.specialty,
             certificate: profile.certificate,
             certificate_files: profile.certificate_files ?? [],
+            profile_photo_file_id: profile.profile_photo_file_id ?? null,
             verification_status: profile.verification_status,
             rejection_reason: profile.rejection_reason ?? null,
           },
@@ -1183,6 +1228,10 @@ export async function mockApiFetch<T>(
       if (Array.isArray(body.certificate_file_ids)) {
         const ids = (body.certificate_file_ids as number[]).map(Number);
         profile.certificate_files = state.files.filter((f) => ids.includes(f.id));
+      }
+      if (body.profile_photo_file_id !== undefined) {
+        const photoId = body.profile_photo_file_id as number | null;
+        profile.profile_photo_file_id = photoId;
       }
       if (body.resubmit === true && profile.verification_status !== "approved") {
         profile.verification_status = "pending";
@@ -1209,6 +1258,7 @@ export async function mockApiFetch<T>(
             specialty: profile.specialty,
             certificate: profile.certificate,
             certificate_files: profile.certificate_files ?? [],
+            profile_photo_file_id: profile.profile_photo_file_id ?? null,
             verification_status: profile.verification_status,
             rejection_reason: profile.rejection_reason ?? null,
           },
@@ -1231,6 +1281,13 @@ export async function mockApiFetch<T>(
       created_at: nowIso(0),
     };
     state.files.push(newFile);
+    if (fileObj) {
+      const dataUrl = await fileToDataUrl(fileObj);
+      if (dataUrl) {
+        if (!state.fileBlobs) state.fileBlobs = {};
+        state.fileBlobs[newFile.id] = dataUrl;
+      }
+    }
     const consultationId = body.consultation_id ? Number(body.consultation_id) : null;
     if (consultationId) {
       const c = state.consultations.find((x) => x.id === consultationId);
@@ -1590,6 +1647,7 @@ export async function mockApiFetch<T>(
       certificate: u.physician_profile!.certificate,
       verification_status: u.physician_profile!.verification_status,
       rejection_reason: u.physician_profile!.rejection_reason,
+      profile_photo_file_id: u.physician_profile!.profile_photo_file_id ?? null,
       user: {
         id: u.id,
         name: u.name,
@@ -1732,6 +1790,21 @@ export async function mockDownloadWithAuth(
   const state = loadState();
   const file = state.files.find((f) => f.id === Number(match[1]));
   if (!file) return { ok: false, message: "الملف غير موجود.", status: 404 };
+
+  const stored = state.fileBlobs?.[file.id];
+  if (stored) {
+    try {
+      const blobRes = await fetch(stored);
+      const blob = await blobRes.blob();
+      return {
+        ok: true,
+        data: { blob, filename: file.original_name },
+      };
+    } catch {
+      // fall through to placeholder
+    }
+  }
+
   return {
     ok: true,
     data: { blob: makePlaceholderBlob(file), filename: file.original_name },

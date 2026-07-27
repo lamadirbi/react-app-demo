@@ -219,7 +219,7 @@ export default function PhysicianConsultationPage() {
                 variant="physician"
               />
               {consultation.patient?.name ? (
-                <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="mt-2 text-xs text-zinc-500">
                   المراجع:{" "}
                   <span className="font-medium text-foreground">
                     {formatPatientWithRelationship(consultation.patient)}
@@ -243,7 +243,7 @@ export default function PhysicianConsultationPage() {
 
               {consultation.medical_files && consultation.medical_files.length ? (
                 <div className="mt-6">
-                  <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <div className="text-sm font-semibold text-zinc-900">
                     الملفات المرفقة
                   </div>
                   <div className="mt-2">
@@ -280,7 +280,7 @@ export default function PhysicianConsultationPage() {
             </CardBody>
           </Card>
         ) : !error ? (
-          <div className="rounded-2xl border border-(--border) bg-(--surface) p-6 text-sm text-zinc-600 dark:text-zinc-400">
+          <div className="rounded-2xl border border-(--border) bg-(--surface) p-6 text-sm text-zinc-600">
             لم يتم العثور على الاستشارة.
           </div>
         ) : null}
