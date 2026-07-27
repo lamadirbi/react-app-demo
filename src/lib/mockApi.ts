@@ -105,22 +105,31 @@ type MockState = {
   };
 };
 
-const STORAGE_KEY = "gc_mock_state_v12";
+const STORAGE_KEY = "gc_mock_state_v13";
 const PREV_STORAGE_KEYS = [
   "gc_mock_state_v7",
   "gc_mock_state_v8",
   "gc_mock_state_v9",
   "gc_mock_state_v10",
   "gc_mock_state_v11",
+  "gc_mock_state_v12",
 ];
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 /** Bump when the demo seed must replace browsers that already saved this STORAGE_KEY. */
-const SEED_REVISION = 5;
+const SEED_REVISION = 6;
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() - offsetDays);
   return d.toISOString();
+}
+
+function physicianAvatarDataUrl(name: string, color: string) {
+  const label = name.replace(/^د\.\s*/, "").trim().slice(0, 2) || "Dr";
+  const safeLabel = label.replace(/[<>&]/g, "");
+  const bg = /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#0b6e7a";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="${bg}" rx="48"/><circle cx="160" cy="118" r="54" fill="#ffffff" fill-opacity="0.2"/><text x="160" y="250" text-anchor="middle" fill="#ffffff" font-size="84" font-family="Tahoma,sans-serif" font-weight="700">${safeLabel}</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 function userPassword(user: MockUser) {
@@ -260,13 +269,57 @@ function seedState(): MockState {
     created_at: nowIso(16),
   };
 
-  const physicianPhotoFile: MockFile = {
+  const physicianPhotoMohammad: MockFile = {
     id: 8,
-    original_name: "صورة-طبيب.jpg",
-    mime_type: "image/jpeg",
+    original_name: "صورة-محمد-الخالدي.jpg",
+    mime_type: "image/svg+xml",
     size_bytes: 84_000,
     file_kind: "image",
     created_at: nowIso(20),
+  };
+
+  const physicianPhotoLayla: MockFile = {
+    id: 9,
+    original_name: "صورة-ليلى-حسن.jpg",
+    mime_type: "image/svg+xml",
+    size_bytes: 84_000,
+    file_kind: "image",
+    created_at: nowIso(20),
+  };
+
+  const physicianPhotoKareem: MockFile = {
+    id: 10,
+    original_name: "صورة-كريم-نصار.jpg",
+    mime_type: "image/svg+xml",
+    size_bytes: 84_000,
+    file_kind: "image",
+    created_at: nowIso(20),
+  };
+
+  const physicianPhotoOmar: MockFile = {
+    id: 11,
+    original_name: "صورة-عمر-يوسف.jpg",
+    mime_type: "image/svg+xml",
+    size_bytes: 84_000,
+    file_kind: "image",
+    created_at: nowIso(20),
+  };
+
+  const physicianPhotoLaila: MockFile = {
+    id: 12,
+    original_name: "صورة-ليلى-منصور.jpg",
+    mime_type: "image/svg+xml",
+    size_bytes: 84_000,
+    file_kind: "image",
+    created_at: nowIso(20),
+  };
+
+  const seedFileBlobs: Record<number, string> = {
+    [physicianPhotoMohammad.id]: physicianAvatarDataUrl("د. محمد الخالدي", "#0b6e7a"),
+    [physicianPhotoLayla.id]: physicianAvatarDataUrl("د. ليلى حسن", "#7c3aed"),
+    [physicianPhotoKareem.id]: physicianAvatarDataUrl("د. كريم نصار", "#0d9488"),
+    [physicianPhotoOmar.id]: physicianAvatarDataUrl("د. عمر يوسف", "#2563eb"),
+    [physicianPhotoLaila.id]: physicianAvatarDataUrl("د. ليلى منصور", "#db2777"),
   };
 
   return {
@@ -319,7 +372,7 @@ function seedState(): MockState {
           certificate: "البورد الأمريكي في أمراض القلب",
           verification_status: "approved",
           verified_by_name: "مدير النظام",
-          profile_photo_file_id: physicianPhotoFile.id,
+          profile_photo_file_id: physicianPhotoMohammad.id,
           certificate_files: [certFile],
         },
       },
@@ -335,6 +388,7 @@ function seedState(): MockState {
           certificate: "تخصص طب أطفال — جامعة القاهرة",
           verification_status: "approved",
           verified_by_name: "مدير النظام",
+          profile_photo_file_id: physicianPhotoLayla.id,
           certificate_files: [certFile],
         },
       },
@@ -350,6 +404,7 @@ function seedState(): MockState {
           certificate: "اختصاص طب أسرة — وزارة الصحة",
           verification_status: "approved",
           verified_by_name: "مدير النظام",
+          profile_photo_file_id: physicianPhotoKareem.id,
           certificate_files: [certFile],
         },
       },
@@ -364,6 +419,7 @@ function seedState(): MockState {
           specialty: "طب الأسرة",
           certificate: "شهادة مزاولة المهنة",
           verification_status: "pending",
+          profile_photo_file_id: physicianPhotoOmar.id,
           certificate_files: [pendingCert],
         },
       },
@@ -381,6 +437,7 @@ function seedState(): MockState {
           verified_by_name: "مدير النظام",
           rejection_reason:
             "صورة الشهادة غير واضحة. يُرجى رفع نسخة أوضح ثم إرسال الطلب مجدداً.",
+          profile_photo_file_id: physicianPhotoLaila.id,
           certificate_files: [rejectedCert],
         },
       },
@@ -397,11 +454,11 @@ function seedState(): MockState {
         id: 1,
         user_id: 1,
         gender: "female",
-        age: 34,
+        age: 45,
         height_cm: 165,
         weight_kg: 62,
-        chronic_diseases: "ضغط دم خفيف",
-        medical_history: "لا عمليات جراحية سابقة",
+        chronic_diseases: "ضغط دم خفيف، سكري من النوع الثاني",
+        medical_history: "تشخيص السكري منذ 2019. مراقبة ضغط الدم في مركز الشفاء.",
         allergies: "البنسلين",
         current_medications: "أملوديبين 5mg يومياً",
       },
@@ -569,8 +626,21 @@ function seedState(): MockState {
         medical_files: [],
       },
     ],
-    files: [certFile, labFile, xrayFile, pendingCert, rejectedCert, sugarFile, oldBloodFile, physicianPhotoFile],
-    fileBlobs: {},
+    files: [
+      certFile,
+      labFile,
+      xrayFile,
+      pendingCert,
+      rejectedCert,
+      sugarFile,
+      oldBloodFile,
+      physicianPhotoMohammad,
+      physicianPhotoLayla,
+      physicianPhotoKareem,
+      physicianPhotoOmar,
+      physicianPhotoLaila,
+    ],
+    fileBlobs: seedFileBlobs,
     messages: [
       {
         id: 1,
@@ -647,7 +717,7 @@ function seedState(): MockState {
       user: 12,
       profile: 6,
       consultation: 10,
-      file: 8,
+      file: 13,
       message: 4,
       notification: 5,
     },
@@ -665,8 +735,13 @@ function isStaleSeed(state: MockState): boolean {
   if ((state.seed_revision ?? 0) < SEED_REVISION) return true;
   const patients = state.users.filter((u) => u.role === "patient").length;
   const completed = state.consultations.filter((c) => c.status === "completed").length;
-  // Old demo seed had only 1 patient and 1 completed consultation.
-  return patients < 5 || completed < 5;
+  const physiciansWithPhotos = state.users.filter(
+    (u) => u.role === "physician" && u.physician_profile?.profile_photo_file_id,
+  ).length;
+  const patientsWithGenderAge = state.medicalProfiles.filter(
+    (p) => p.gender && p.age != null,
+  ).length;
+  return patients < 5 || completed < 5 || physiciansWithPhotos < 3 || patientsWithGenderAge < 5;
 }
 
 function loadState(): MockState {
@@ -751,6 +826,7 @@ function physicianOf(id: number | null, state: MockState) {
       ? {
           specialty: u.physician_profile.specialty,
           certificate: u.physician_profile.certificate,
+          profile_photo_file_id: u.physician_profile.profile_photo_file_id ?? null,
           certificate_files: certFiles,
           certificate_file: certFiles[0] ?? null,
           certificate_file_ids: certFiles.map((f) => f.id),
@@ -1609,6 +1685,7 @@ export async function mockApiFetch<T>(
         user_id: u.id,
         specialty: u.physician_profile!.specialty,
         certificate: u.physician_profile!.certificate,
+        profile_photo_file_id: u.physician_profile!.profile_photo_file_id ?? null,
         user: { id: u.id, name: u.name, email: u.email },
       }));
     if (specialtyQ) {
