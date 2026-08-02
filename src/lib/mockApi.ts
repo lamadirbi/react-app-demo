@@ -9,6 +9,7 @@ type MockUser = {
   is_disabled?: boolean;
   caregiver_mode_enabled?: boolean;
   caregiver_relationship?: string | null;
+  created_at?: string;
   physician_profile?: {
     id: number;
     specialty: string;
@@ -18,6 +19,7 @@ type MockUser = {
     verified_at?: string | null;
     verified_by_name?: string | null;
     profile_photo_file_id?: number | null;
+    created_at?: string;
     certificate_files?: MockFile[];
   } | null;
 };
@@ -116,7 +118,7 @@ const PREV_STORAGE_KEYS = [
 ];
 const DEMO_DEFAULT_PASSWORD = "Care2026";
 /** Bump when the demo seed must replace browsers that already saved this STORAGE_KEY. */
-const SEED_REVISION = 6;
+const SEED_REVISION = 7;
 
 function nowIso(offsetDays = 0) {
   const d = new Date();
@@ -331,6 +333,7 @@ function seedState(): MockState {
         email: "sara.ahmad@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
+        created_at: nowIso(40),
       },
       {
         id: 7,
@@ -338,6 +341,7 @@ function seedState(): MockState {
         email: "ali.hassan@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
+        created_at: nowIso(35),
       },
       {
         id: 8,
@@ -345,6 +349,7 @@ function seedState(): MockState {
         email: "noor.khaled@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
+        created_at: nowIso(28),
       },
       {
         id: 9,
@@ -352,6 +357,7 @@ function seedState(): MockState {
         email: "yousef.samir@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
+        created_at: nowIso(22),
       },
       {
         id: 10,
@@ -359,6 +365,7 @@ function seedState(): MockState {
         email: "heba.nidal@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "patient",
+        created_at: nowIso(18),
       },
       {
         id: 2,
@@ -366,6 +373,7 @@ function seedState(): MockState {
         email: "m.khalidi@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
+        created_at: nowIso(45),
         physician_profile: {
           id: 1,
           specialty: "طب القلب",
@@ -373,6 +381,7 @@ function seedState(): MockState {
           verification_status: "approved",
           verified_by_name: "مدير النظام",
           profile_photo_file_id: physicianPhotoMohammad.id,
+          created_at: nowIso(45),
           certificate_files: [certFile],
         },
       },
@@ -382,6 +391,7 @@ function seedState(): MockState {
         email: "layla.hassan@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
+        created_at: nowIso(42),
         physician_profile: {
           id: 2,
           specialty: "طب الأطفال",
@@ -389,6 +399,7 @@ function seedState(): MockState {
           verification_status: "approved",
           verified_by_name: "مدير النظام",
           profile_photo_file_id: physicianPhotoLayla.id,
+          created_at: nowIso(42),
           certificate_files: [certFile],
         },
       },
@@ -398,6 +409,7 @@ function seedState(): MockState {
         email: "k.nassar@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
+        created_at: nowIso(30),
         physician_profile: {
           id: 5,
           specialty: "طب الأسرة",
@@ -405,6 +417,7 @@ function seedState(): MockState {
           verification_status: "approved",
           verified_by_name: "مدير النظام",
           profile_photo_file_id: physicianPhotoKareem.id,
+          created_at: nowIso(30),
           certificate_files: [certFile],
         },
       },
@@ -414,12 +427,14 @@ function seedState(): MockState {
         email: "omar.yousef@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
+        created_at: nowIso(2),
         physician_profile: {
           id: 3,
           specialty: "طب الأسرة",
           certificate: "شهادة مزاولة المهنة",
           verification_status: "pending",
           profile_photo_file_id: physicianPhotoOmar.id,
+          created_at: nowIso(2),
           certificate_files: [pendingCert],
         },
       },
@@ -429,6 +444,7 @@ function seedState(): MockState {
         email: "laila.mansour@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "physician",
+        created_at: nowIso(10),
         physician_profile: {
           id: 4,
           specialty: "الأمراض الجلدية",
@@ -438,6 +454,7 @@ function seedState(): MockState {
           rejection_reason:
             "صورة الشهادة غير واضحة. يُرجى رفع نسخة أوضح ثم إرسال الطلب مجدداً.",
           profile_photo_file_id: physicianPhotoLaila.id,
+          created_at: nowIso(10),
           certificate_files: [rejectedCert],
         },
       },
@@ -447,6 +464,7 @@ function seedState(): MockState {
         email: "admin@gazacare.ps",
         password: DEMO_DEFAULT_PASSWORD,
         role: "admin",
+        created_at: nowIso(60),
       },
     ],
     medicalProfiles: [
@@ -1085,13 +1103,15 @@ export async function mockApiFetch<T>(
       email,
       password: String(body.password ?? DEMO_DEFAULT_PASSWORD),
       role,
+      created_at: nowIso(0),
       physician_profile:
         role === "physician"
           ? {
               id: state.nextId.profile++,
-              specialty: "",
-              certificate: "",
+              specialty: String(body.physician_specialty ?? body.specialty ?? ""),
+              certificate: String(body.physician_certificate ?? body.certificate ?? ""),
               verification_status: "pending",
+              created_at: nowIso(0),
               certificate_files: [],
             }
           : null,
@@ -1279,6 +1299,7 @@ export async function mockApiFetch<T>(
         specialty: "",
         certificate: "",
         verification_status: "pending",
+        created_at: currentUser.created_at ?? nowIso(0),
         certificate_files: [],
       };
     }
@@ -1718,6 +1739,7 @@ export async function mockApiFetch<T>(
   }
 
   function mapAdminPhysician(u: MockUser) {
+    const registeredAt = u.created_at ?? u.physician_profile?.created_at ?? nowIso(0);
     return {
       id: u.physician_profile!.id,
       specialty: u.physician_profile!.specialty,
@@ -1725,11 +1747,13 @@ export async function mockApiFetch<T>(
       verification_status: u.physician_profile!.verification_status,
       rejection_reason: u.physician_profile!.rejection_reason,
       profile_photo_file_id: u.physician_profile!.profile_photo_file_id ?? null,
+      created_at: u.physician_profile!.created_at ?? registeredAt,
       user: {
         id: u.id,
         name: u.name,
         email: u.email,
         is_disabled: u.is_disabled ?? false,
+        created_at: registeredAt,
       },
       certificate_files: u.physician_profile!.certificate_files ?? [],
     };
