@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
-import { HomePlatformStats } from "@/components/HomePlatformStats";
 import { LandingHeader } from "@/components/LandingHeader";
+import { HomePlatformStats } from "@/components/HomePlatformStats";
 
 const steps = [
   {
