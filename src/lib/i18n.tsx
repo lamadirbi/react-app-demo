@@ -105,6 +105,10 @@ export const translations = {
     noAccount: "ليس لديك حساب؟",
     registerLink: "إنشاء حساب جديد",
     loginError422: "البريد الإلكتروني أو كلمة المرور غير صحيحة. تحقق من البيانات وحاول مجددًا.",
+    quickLoginTitle: "دخول سريع",
+    quickLoginDesc: "اختر حساباً للمتابعة مباشرة.",
+    orEnterCredentials: "أو ادخل ببياناتك",
+    roleRejectedPhysician: "طبيب مرفوض",
 
     // Register page
     registerPageTitle: "إنشاء حساب",
@@ -706,6 +710,10 @@ export const translations = {
     noAccount: "Don't have an account?",
     registerLink: "Create a new account",
     loginError422: "Incorrect email or password. Please check your credentials and try again.",
+    quickLoginTitle: "Quick login",
+    quickLoginDesc: "Pick an account to continue.",
+    orEnterCredentials: "Or sign in with your credentials",
+    roleRejectedPhysician: "Rejected physician",
 
     // Register page
     registerPageTitle: "Create Account",
