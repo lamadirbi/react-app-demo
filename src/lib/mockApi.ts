@@ -1137,7 +1137,7 @@ export async function mockApiFetch<T>(
         `الدكتور ${newUser.name} سجّل وينتظر مراجعة الشهادة.`,
         "/admin/physicians",
         "physician_pending",
-        { user_id: newUser.id },
+        { user_id: newUser.id, actor_name: newUser.name },
       );
     }
     saveState(state);
@@ -1339,7 +1339,7 @@ export async function mockApiFetch<T>(
           `الدكتور ${currentUser.name} أعاد إرسال طلب التوثيق للمراجعة.`,
           "/admin/physicians",
           "physician_resubmit",
-          { user_id: currentUser.id },
+          { user_id: currentUser.id, actor_name: currentUser.name },
         );
       }
       // Keep user object in state in sync
@@ -1465,7 +1465,7 @@ export async function mockApiFetch<T>(
           `استشارة جديدة من ${currentUser.name} (#${newC.id}).`,
           `/physician/consultations/${newC.id}`,
           "consultation_direct",
-          { consultation_id: newC.id },
+          { consultation_id: newC.id, actor_name: currentUser.name },
         );
       }
     }
@@ -1497,7 +1497,7 @@ export async function mockApiFetch<T>(
           `الدكتور ${currentUser.name} استلم استشارتك #${c.id}.`,
           `/consultations/${c.id}`,
           "consultation_claimed",
-          { consultation_id: c.id },
+          { consultation_id: c.id, actor_name: currentUser.name },
         );
       }
       saveState(state);
@@ -1544,7 +1544,7 @@ export async function mockApiFetch<T>(
           `الدكتور ${currentUser.name} أرسل توصياته للاستشارة #${c.id}.`,
           `/consultations/${c.id}`,
           "consultation_replied",
-          { consultation_id: c.id },
+          { consultation_id: c.id, actor_name: currentUser.name },
         );
       }
       saveState(state);
@@ -1608,7 +1608,7 @@ export async function mockApiFetch<T>(
           `${currentUser.name} أرسل متابعة على الاستشارة #${c.id}.`,
           `/physician/consultations/${c.id}`,
           "consultation_patient_message",
-          { consultation_id: c.id },
+          { consultation_id: c.id, actor_name: currentUser.name },
         );
       } else if (currentUser.role === "physician") {
         pushNotification(
@@ -1620,7 +1620,7 @@ export async function mockApiFetch<T>(
             : `الدكتور ${currentUser.name} أرسل توصياته للاستشارة #${c.id}.`,
           `/consultations/${c.id}`,
           priorPhysicianMessages ? "consultation_physician_message" : "consultation_replied",
-          { consultation_id: c.id },
+          { consultation_id: c.id, actor_name: currentUser.name },
         );
       }
       saveState(state);
