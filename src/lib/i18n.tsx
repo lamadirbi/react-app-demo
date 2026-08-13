@@ -25,7 +25,7 @@ export const translations = {
     // Hero
     heroBadge: "استشارات طبية عن بُعد — غزة",
     heroTitle: "احصل على رعاية طبية من المتخصصين",
-    heroTitleHighlight: "من أي مكان وزمان",
+    heroTitleHighlight: "من اي مكان وزمان",
     heroDesc: "منصة تجمع المرضى في قطاع غزة مع أطباء متخصصين يمكنهم تقديم مشورة طبية عن بُعد.",
     heroCta1: "أنشئ حسابك",
     heroCta2: "سجّل دخولك",

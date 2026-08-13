@@ -7,6 +7,8 @@ export type PlatformStats = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_API === "true";
+
 const emptyStats: PlatformStats = {
   completed_consultations: 0,
   verified_physicians: 0,
@@ -15,6 +17,16 @@ const emptyStats: PlatformStats = {
 
 export async function fetchPlatformStats(): Promise<PlatformStats> {
   try {
+    // Demo / Netlify: use in-browser mock API instead of localhost backend
+    if (MOCK_MODE) {
+      const { mockApiFetch } = await import("@/lib/mockApi");
+      const res = await mockApiFetch<{ stats: PlatformStats }>("/platform-stats", {
+        auth: false,
+      });
+      if (res.ok && res.data.stats) return res.data.stats;
+      return emptyStats;
+    }
+
     const res = await fetch(`${API_BASE}/platform-stats`, {
       next: { revalidate: 30 },
     });

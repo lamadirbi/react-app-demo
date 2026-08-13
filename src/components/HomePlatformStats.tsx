@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import {
-  buildStatCards,
-  type PlatformStats,
-} from "@/lib/platformStats";
+import { useLang } from "@/lib/i18n";
+import type { PlatformStats } from "@/lib/platformStats";
 
 const emptyStats: PlatformStats = {
   completed_consultations: 0,
@@ -15,7 +13,12 @@ const emptyStats: PlatformStats = {
 
 type StatsResponse = { stats: PlatformStats };
 
+function formatNumber(n: number, lang: string) {
+  return new Intl.NumberFormat(lang === "ar" ? "ar" : "en").format(n);
+}
+
 export function HomePlatformStats() {
+  const { t, lang } = useLang();
   const [stats, setStats] = useState<PlatformStats>(emptyStats);
   const [ready, setReady] = useState(false);
 
@@ -52,7 +55,20 @@ export function HomePlatformStats() {
     };
   }, [load]);
 
-  const cards = buildStatCards(stats);
+  const cards = [
+    {
+      value: formatNumber(stats.completed_consultations, lang),
+      label: t("statCompletedConsultations"),
+    },
+    {
+      value: formatNumber(stats.verified_physicians, lang),
+      label: t("statVerifiedPhysicians"),
+    },
+    {
+      value: formatNumber(stats.registered_patients, lang),
+      label: t("statRegisteredPatients"),
+    },
+  ];
 
   return (
     <div

@@ -2,15 +2,11 @@
 
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import { HomePlatformStats } from "@/components/HomePlatformStats";
 import { LandingHeader } from "@/components/LandingHeader";
 import { useLang } from "@/lib/i18n";
-import type { PlatformStats } from "@/lib/platformStats";
 
-function formatNumber(n: number, lang: string) {
-  return new Intl.NumberFormat(lang === "ar" ? "ar" : "en").format(n);
-}
-
-export function LandingContent({ platformStats }: { platformStats: PlatformStats }) {
+export function LandingContent() {
   const { t, lang } = useLang();
 
   const steps = [
@@ -34,12 +30,6 @@ export function LandingContent({ platformStats }: { platformStats: PlatformStats
     { q: t("faq2Q"), a: t("faq2A") },
     { q: t("faq3Q"), a: t("faq3A") },
     { q: t("faq4Q"), a: t("faq4A") },
-  ];
-
-  const stats = [
-    { value: formatNumber(platformStats.completed_consultations, lang), label: t("statCompletedConsultations") },
-    { value: formatNumber(platformStats.verified_physicians, lang), label: t("statVerifiedPhysicians") },
-    { value: formatNumber(platformStats.registered_patients, lang), label: t("statRegisteredPatients") },
   ];
 
   const attachments =
@@ -72,7 +62,7 @@ export function LandingContent({ platformStats }: { platformStats: PlatformStats
 
                 <h1 className="mt-5 text-3xl font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.6rem]">
                   {t("heroTitle")}
-                  <span className="mt-2 block bg-gradient-to-l from-(--gc-accent) to-[#0b6e7a] bg-clip-text text-transparent">
+                  <span className="mt-2 block text-(--gc-accent)">
                     {t("heroTitleHighlight")}
                   </span>
                 </h1>
@@ -90,16 +80,7 @@ export function LandingContent({ platformStats }: { platformStats: PlatformStats
                   </Link>
                 </div>
 
-                <div className="mt-10 grid grid-cols-3 gap-3">
-                  {stats.map((s) => (
-                    <div key={s.label} className="gc-stat-card">
-                      <div className="text-xl font-extrabold text-(--gc-accent) sm:text-2xl">
-                        {s.value}
-                      </div>
-                      <div className="mt-0.5 text-xs text-(--muted)">{s.label}</div>
-                    </div>
-                  ))}
-                </div>
+                <HomePlatformStats />
               </div>
 
               <div className="relative mx-auto w-full max-w-md lg:max-w-none">
